@@ -2,24 +2,57 @@ let map3D = null;
 let activeMarker = null; // Stores the current hotel marker
 let nearbyMarkers = []; // Stores the current nearby feature markers
 let sponorMarkers = [];
-
-document.addEventListener("DOMContentLoaded", async () => {
-    // --- Original initialization logic ---
+const placeList = document.querySelector("gmp-place-list");
+const placeDetails = document.querySelector("gmp-place-details");
+const placeDetailsRequest = document.querySelector('gmp-place-details-place-request');
+  async function initApp() {    // --- Original initialization logic ---
     await initializeMap(); // Initialize map first
+    await google.maps.importLibrary("places");
+    const placeAutocomplete = new google.maps.places.PlaceAutocompleteElement();
+    //@ts-ignore
+    placeAutocomplete.id = 'place-autocomplete-input';
+    //placeAutocomplete.locationBias = center;
+    const card = document.getElementById('place-autocomplete-card');
+    card.appendChild(placeAutocomplete);
+    placeAutocomplete.addEventListener('gmp-select', async ({ placePrediction }) => {
+        const place = placePrediction.toPlace();
+        await place.fetchFields({ fields: ['displayName', 'formattedAddress', 'location'] });
+           
+            const placejson = place.toJSON()
+            getNearbyHotels(placejson.location);
+    });
+    //@ts-ignore
     if (map3D) {
-        fetchHotels(); // Then load hotels
+        //fetchHotels(); // Then load hotels
     } else {
          console.error("Skipping hotel fetch: Map not initialized.");
          // Consider hiding loading overlay here if init fails
          // hideLoading();
     }
-});
+     
+}
+
+async function getNearbyHotels(location) {
+        placeList.style.display = 'block';
+
+        placeList.configureFromSearchNearbyRequest({
+                    locationRestriction: { center: location, radius: 10000 },
+                    includedPrimaryTypes: ['hotel'],
+        })
+                
+        // Handle user selection in Place Details.
+        placeList.addEventListener('gmp-placeselect', ({ place }) => {
+            const jsonplace = place.toJSON()
+            moveToLocation(jsonplace);
+            console.log(place.toJSON());
+        });
+    }
 
 async function initializeMap() {
 
     // Select the existing <gmp-map-3d> element from HTML
     map3D = document.getElementById("map");
-
+   
     if (!map3D) {
         console.error("Map element not found!");
         return;
@@ -31,7 +64,7 @@ async function initializeMap() {
 
 async function fetchHotels() {
     const hotelList = document.getElementById("hotel-list");
-    hotelList.innerHTML = '<p style="padding: 20px; text-align: center; color: var(--text-light);">Loading hotels...</p>';
+    //hotelList.innerHTML = '<p style="padding: 20px; text-align: center; color: var(--text-light);">Loading hotels...</p>';
 
     try {
        
@@ -192,17 +225,17 @@ async function moveToLocation(hotel) {
         return;
     }
 
-
+    console.log(hotel.location)
     showLoading();
     await new Promise(requestAnimationFrame);
 
     try {
-        console.log(`Moving map to: ${hotel.coordinates.lat}, ${hotel.coordinates.lng}`);
-        map3D.setAttribute("center", `${hotel.coordinates.lat},${hotel.coordinates.lng}`);
+        console.log(`Moving map to: ${hotel.location}`);
+        map3D.setAttribute("center", `${hotel.location.lat}, ${hotel.location.lng}`);
         await Promise.all([
-            setCamera(hotel.coordinates.lat, hotel.coordinates.lng, hotel.coordinates.alt, hotel.tilt, hotel.range),
-            addHotelMarker(hotel),
-            searchNearbyFeatures(hotel)
+            setCamera(hotel.location.lat, hotel.location.lng, 10, 75, 300),
+           // addHotelMarker(hotel.location),
+            //searchNearbyFeatures(hotel)
             
         ]);
      
@@ -213,7 +246,7 @@ async function moveToLocation(hotel) {
         const container = document.getElementById('sponsored-activities-container');
         const title = document.getElementById('sponsored-hotel-name');
 
-        if (hotel.sponsoredActivities && hotel.sponsoredActivities.length > 0) {
+       /* if (hotel.sponsoredActivities && hotel.sponsoredActivities.length > 0) {
             title.textContent = '⭐ Suggested activities near ' + hotel.name;
             container.innerHTML = ''; // Clear previous
 
@@ -234,7 +267,7 @@ async function moveToLocation(hotel) {
             popup.classList.add('visible');
         } else {
             popup.classList.remove('visible');
-        }
+        }*/
     } catch (err) {
         console.error("Error during map move:", err);
     } finally {

@@ -31,13 +31,24 @@
     </div>
 
     <div class="sidebar">
-        <h2>Hotels</h2> 
-        <div class="hotel-list" id="hotel-list">
+        <div class="place-autocomplete-card" id="place-autocomplete-card">
+            <p>Search for a place here:</p>
+        </div>
+            <h2>Hotels</h2> 
+            <div class="list-container">
+
+                <gmp-place-list selectable style="display: none;"></gmp-place-list>
+            </div>
+            <gmp-place-details style="display: none;">
+            <gmp-place-details-place-request></gmp-place-details-place-request>
+            <gmp-place-all-content></gmp-place-all-content> 
+            </gmp-place-details>
+      <!-- <div class="hotel-list" id="hotel-list">--> 
         </div>
     </div>
  
    
-    <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCVNX6mCprAYiGp8RUaf9yc6H-00fLR1Ns&v=alpha&libraries=maps3d"></script>
+    <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCVNX6mCprAYiGp8RUaf9yc6H-00fLR1Ns&v=alpha&libraries=maps3d,places&callback=initApp"></script>
     <script src="hotels.js"></script>
     <script src="main.js"></script>  
 </body>
