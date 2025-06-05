@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Travel App - Localyse Demo</title>
+    <link rel="stylesheet" href="main.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+</head>
+<body>
+
+    <div class="header">
+        <div class="header-title">
+            <span class="header-icon">✈️</span> LOCALYSE TRAVEL APP
+        </div>
+   
+        <nav class="header-menu">
+            <a href="#home" class="menu-item">Home</a>
+            <a href="#explore" class="menu-item">Explore</a>
+            <a href="#saved" class="menu-item">Saved Trips</a>
+            <button class="menu-item menu-button">Login</button>
+        </nav>
+    </div>
+    <div class="content">
+        <gmp-map-3d id="map" mode="satellite" center="27.74095231744191, -15.599906324939424" range="20000000" tilt="1" heading="330"></gmp-map-3d>
+        <div id="sponsored-popup" class="sponsored-popup">
+            <button class="close-btn" onclick="document.getElementById('sponsored-popup').classList.remove('visible')">✖</button>
+            <h3 id="sponsored-hotel-name"></h3>
+            <div id="sponsored-activities-container"></div>
+        </div>
+        <div id="loading-overlay">LOADING</div>
+    </div>
+
+    <div class="sidebar">
+        <h2>Hotels</h2> 
+        <div class="hotel-list" id="hotel-list">
+        </div>
+    </div>
+ 
+   
+    <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCVNX6mCprAYiGp8RUaf9yc6H-00fLR1Ns&v=alpha&libraries=maps3d"></script>
+    <script src="hotels.js"></script>
+    <script src="main.js"></script>  
+</body>
+</html>
