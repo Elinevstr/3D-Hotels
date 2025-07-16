@@ -79,9 +79,6 @@ class HotelMapApp {
         mode: 'SATELLITE'
     });
     this.elements.map.appendChild(this.map3D);
-    this.map3D.style.borderRadius = "10px";
-    this.map3D.style.width = "100%";
-    this.map3D.style.height = "100%";
 
         
     console.log("3D Map initialized");
@@ -110,8 +107,6 @@ class HotelMapApp {
         const placeAutocomplete = new PlaceAutocompleteElement();
         placeAutocomplete.id = 'place-autocomplete-input';
         autocompleteContainer.appendChild(placeAutocomplete);
-        placeAutocomplete.style.colorScheme = "light";
-
 
         placeAutocomplete.addEventListener('gmp-select', async ({ placePrediction }) => {
             try {
@@ -220,6 +215,8 @@ async calculateRoute(origin, destination) {
         }
     }
     async moveToLocation(hotel) {
+        const { Marker3DInteractiveElement, PinElement } = this.library;
+
         if (this.activeMarker) this.activeMarker.remove();
         this.activeMarker = await this.addFloatingHotelMarker(hotel);
 
@@ -276,7 +273,7 @@ async calculateRoute(origin, destination) {
         this.map3D.addEventListener('gmp-animationend', () => {
             this.map3D.flyCameraAround({
                 camera: { center: { lat, lng, altitude: alt }, tilt, range, heading: 0 },
-                durationMillis: 50000,
+                durationMillis: 100000,
                 rounds: 1
             });
         }, { once: true });
@@ -324,7 +321,7 @@ searchNearbyFeatures(location) {
     this.nearbyMarkers = [];
     
     if (places?.length) {
-        //await this.displaySponsoredActivities(places, location);
+      //  await this.displaySponsoredActivities(places, location);
         this.createFeatureMarkers(places, location);
     } else {
         this.elements.sponsoredPopup.classList.remove('visible');
@@ -417,13 +414,12 @@ async createFeatureMarkers(places, location) {
                     lng: feature.location.longitude,
                     altitude: altitude
                 },
-                label: `${feature.displayName.text}`,
+                label: `${index < 3 ? '⭐' : ''}${feature.displayName.text}`,
                 altitudeMode: "RELATIVE_TO_GROUND",
                 extruded: true,
                 collisionBehavior: google.maps.CollisionBehavior.OPTIONAL_AND_HIDES_LOWER_PRIORITY
             });
-            marker.originalLabel = feature.displayName.text;
-            marker.label = feature.displayName.text;
+
             // Create and style pin
             const pin = new PinElement({
                 scale: 0,
@@ -439,58 +435,75 @@ async createFeatureMarkers(places, location) {
                 positionAnchor: marker,
             });
             popover.classList.add("light-popover");
-           
+
             // Add place details to popover
             const placeDetailsEl = createPlaceDetailsElement(placeId);
-            
+            popover.append(placeDetailsEl);
+
             // Handle marker clicks
             marker.addEventListener("gmp-click", async () => {
-    // Deselect previously active marker
-    if (this.activeMarker && this.activeMarker !== marker) {
-         this.activeMarker.label = this.activeMarker.originalLabel;
-            this.removeSpecificRoute(this.activeMarker.id);
-    }
-    this.setCamera(location.latitude, location.longitude,  10, 50, 4000);
-    const isSameMarker = this.activeMarker === marker;
+                popover.open = !popover.open;
+               
+                if (popover.open) {
+                    // Clean up ALL existing route elements using class method
+                    this.clearAllRoutes();
 
-    if (isSameMarker) {
-        // Deselect current marker
-        marker.label = this.activeMarker.originalLabel;
-        this.removeSpecificRoute(marker.id);
-        console.log('same')
-        this.activeMarker = null;
-        this.setCamera(feature.location.latitude, feature.location.longitude,  10, 50, 400);
-    } else {
-        // Set this marker as active
-        marker.label = `⭐${feature.displayName.text}`;
-        this.elements.sponsoredContainer.innerHTML = "";
+                    try {
+                        // Calculate route from current location to feature
+                        const route = await this.calculateRoute(location, feature.location);
+                        
+                        if (route && route.routes && route.routes[0]) {
+                            // Create and display polyline
+                            const polyline = createRoutePolyline();
+                            const path = google.maps.geometry.encoding.decodePath(route.routes[0].polyline.encodedPolyline);
+                            polyline.coordinates = path;
 
-        this.clearAllRoutes(); // Optional
+                            // Fix: Use Math.floor for center calculation
+                            const middleIndex = Math.floor(path.length / 2);
+                            const centerValue = path[middleIndex];
+                            
+                            // Create center marker with route info
+                            const centerMarker = new Marker3DInteractiveElement({
+                                position: {
+                                    lat: centerValue.lat(),
+                                    lng: centerValue.lng(),
+                                    altitude: altitude
+                                },
+                                label: `🚶‍♂️${route.routes[0].localizedValues.duration.text} - ${route.routes[0].localizedValues.distance.text}`,
+                                altitudeMode: "RELATIVE_TO_GROUND",
+                                extruded: true,
+                                collisionBehavior: google.maps.CollisionBehavior.OPTIONAL_AND_HIDES_LOWER_PRIORITY
+                            });
+                            
 
-        try {
-            const route = await this.calculateRoute(location, feature.location);
-            if (route?.routes?.[0]) {
-                const polyline = createRoutePolyline();
-                const path = google.maps.geometry.encoding.decodePath(route.routes[0].polyline.encodedPolyline);
-                polyline.coordinates = path;
+                            // Create pin for center marker (reuse feature icon)
+                            const centerPin = new PinElement({
+                                scale: 0,
+                                glyph: new URL(`${feature.iconMaskBaseUri}.svg`),
+                                glyphColor: "white"
+                            });
+                            centerMarker.append(centerPin);
 
-                const placeDetailsEl = createPlaceDetailsElement(placeId);
-                this.elements.sponsoredContainer.append(placeDetailsEl);
-                this.elements.sponsoredContainer.append(
-                    `🚶‍♂️${route.routes[0].localizedValues.duration.text} - ${route.routes[0].localizedValues.distance.text}`
-                );
-                this.elements.sponsoredPopup.style.display = 'block';
+                            // Store references in class properties
+                            this.activePolylines.set(markerId, polyline);
+                            this.activeCenterMarkers.set(markerId, centerMarker);
 
-                this.activePolylines.set(marker.id, polyline);
-                this.map3D.append(polyline);
-            }
-        } catch (error) {
-            console.error("Error calculating route:", error);
-        }
+                            // Add to map
+                            this.map3D.append(polyline);
+                            this.map3D.append(centerMarker);
 
-        this.activeMarker = marker;
-    }
-});
+                            console.log("Route displayed for:", feature.displayName.text);
+                        } else {
+                            console.warn("No route found for:", feature.displayName.text);
+                        }
+                    } catch (error) {
+                        console.error("Error calculating route:", error);
+                    }
+                } else {
+                    // Clean up when popover closes
+                    this.removeSpecificRoute(markerId);
+                }
+            });
 
             // Append to map
             this.map3D.append(popover);

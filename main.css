@@ -1,8 +1,8 @@
 /* ==========================================================================
    1. Variables & Global Styles
    ========================================================================== */
-
-   :root {
+@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:ital,wght@0,100..900;1,100..900&display=swap');
+:root {
     /* Colors */
     --primary-color: #007bff;    /* Vibrant blue */
     --secondary-color: #f8f9fa; /* Light grey background */
@@ -21,11 +21,24 @@
     --shadow-color: rgba(0, 0, 0, 0.1);
     --shadow-color-hover: rgba(0, 0, 0, 0.15);
     --popup-bg: rgba(255, 255, 255, 0.95); /* Semi-transparent white for popup */
+    --gmp-mat-color-outline-decorative: white;
+    --gmp-mat-color-surface: white;
+    --gmp-mat-color-on-surface: rgb(32, 20, 107);
+    --gmp-mat-color-on-surface-variant: rgb(67, 47, 194);
+    --gmp-mat-color-primary: rgb(236, 114, 135);
+    --gmp-mat-color-secondary-container: pink;
+    --gmp-mat-color-on-secondary-container: purple;
+    --gmp-mat-color-disabled-surface: black;
+    --gmp-mat-font-family: "Inter Tight", sans-serif;
+    --gmp-mat-font-display-small: "bold";
+
+
+
+
+
 
     /* Layout */
-    --header-height: 60px;
-    --sidebar-width: 550px;
-
+ 
     /* Typography */
     --font-family-primary: 'Poppins', Arial, sans-serif;
     --base-font-size: 15px;
@@ -46,15 +59,17 @@
 /* General Styles */
 html, body {
     height: 100%;
-    margin: 0;
-    padding: 0;
+    width: 96vw;
+    gap: 20px;
+    padding: 5px;
+  
     font-family: var(--font-family-primary);
     background-color: var(--secondary-color);
     color: var(--text-color);
     font-size: var(--base-font-size);
     /* Flex on body helps ensure .content grows if needed, but might be overkill */
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
 }
 
 /* ==========================================================================
@@ -133,14 +148,14 @@ html, body {
 
 
 .sidebar {
-    position: fixed;
+    flex-basis: 30%;
+    border-radius: 12px;
     top: var(--header-height); /* Position below header */
-    right: 0;
-    width: var(--sidebar-width);
-    height: calc(100% - var(--header-height)); /* Full height below header */
     background: var(--white);
+    position: fixe;
     color: var(--heading-color); /* Use variable */
     overflow-y: auto;
+    height: 95%;
     box-shadow: -2px 0 8px var(--shadow-color);
     border-left: 1px solid var(--border-color);
     display: flex; /* Use flex for internal layout */
@@ -165,11 +180,8 @@ html, body {
 }
 
 .content {
-    margin-right: var(--sidebar-width); /* Make space for fixed sidebar */
-    margin-top: var(--header-height); /* Make space for fixed header */
-    height: calc(100% - var(--header-height)); /* Full height below header */
+    flex-basis: 70%;  
     position: relative; /* Needed for absolute positioning of children */
-    flex-grow: 1; /* Allow content to fill remaining space (if body is flex) */
     display: flex; /* Needed to make map child fill the area */
 }
 
@@ -179,9 +191,10 @@ html, body {
 
 /* --- Map --- */
 #map {
-    height: 100%;
+    height: 95%;
     width: 100%;
     border: none;
+    border-radius: 12px;
 }
 
 /* Optional - Activity Marker Style */
@@ -199,139 +212,35 @@ html, body {
 }
 
 
-/* --- Hotel List & Items --- */
-.hotel-list {
-    padding: 15px;
-    flex-grow: 1; /* Allow list to fill remaining sidebar space */
-    /* overflow-y: auto; handled by sidebar */
-}
 
-.hotel {
-    background: var(--white);
-    margin-bottom: 15px;
-    padding: 15px;
-    border-radius: var(--border-radius-large);
-    box-shadow: var(--box-shadow-medium);
-    transition: transform var(--transition-speed) var(--transition-timing),
-                box-shadow var(--transition-speed) var(--transition-timing);
-    display: flex;
-    align-items: flex-start; /* Align items to the top */
-    gap: 15px; /* Space between image and text block */
-    cursor: pointer;
-    border: 1px solid var(--border-color);
-    overflow: hidden; /* Contain elements */
-}
-
-.hotel:hover {
-    transform: translateY(-3px);
-    box-shadow: var(--box-shadow-hover);
-}
-
-.hotel img {
-    width: 150px;
-    height: 150px;
-    border-radius: var(--border-radius-medium);
-    object-fit: cover;
-    flex-shrink: 0; /* Prevent image shrinking */
-    /* margin-top: 3px; Removed - align-items: flex-start should handle alignment */
-}
-
-.hotel-info {
-    flex-grow: 1; /* Text area takes remaining space */
-    display: flex;
-    flex-direction: column;
-    gap: 5px; /* Vertical gap between text elements */
-}
-
-.hotel h3 { /* More specific: .hotel .hotel-info h3 if needed */
-    margin: 0 0 2px 0;
-    font-size: 20px;
-    font-weight: 600;
-    color: var(--text-color);
-    line-height: 1.3;
-}
-
-/* General paragraph style within hotel-info */
-.hotel .hotel-info > p {
+/* Weather info styling for sponsored activities */
+.weather-info-box {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 998;
+    background-color: #d6e6f8f1; /* Default, overridden dynamically */
+    color: #f8f8f8;
+    border-radius: 6px;
+    padding: 6px 10px;
     font-size: var(--base-font-size);
-    color: var(--text-light);
-    margin: 0;
-    line-height: 1.4;
-}
-
-/* Container for detail tags (rating, price, etc.) */
-.hotel .hotel-details {
-    margin-top: 8px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px 4px; /* Vertical and Horizontal gap */
     align-items: center;
+    gap: 6px;
+    display: none;
+    box-shadow: var(--box-shadow-soft);
+    transition: background-color 0.3s ease;
 }
 
-/* Common style for all detail tags (spans) */
-.hotel .hotel-details > span {
-    display: inline-flex; /* Align icons/text within tag */
-    align-items: center;
-    gap: 4px; /* Space between icon/text within a tag */
-    font-size: 12px;
-    padding: 2px 6px;
-    border-radius: var(--border-radius-small);
-    line-height: 1.3;
-    background-color: var(--secondary-color); /* Default light background */
-    color: var(--text-light);
-    white-space: nowrap; /* Prevent tag text wrapping */
-    border: 1px solid transparent; /* Reserve space for border */
-}
-
-/* Specific detail tag styles */
-.hotel .hotel-details .rating {
-    color: var(--warning-color);
-    background-color: transparent;
-    padding-left: 0;
-    font-weight: 500;
-    border: none;
-}
-
-.hotel .hotel-details .price {
-    color: var(--text-color);
-    font-weight: 600;
-    font-size: var(--base-font-size);
-    background-color: var(--success-bg-light);
-    border-color: var(--success-border); /* Use variable */
-}
-
-.hotel .hotel-details .price-unavailable {
-    font-style: italic;
-    background-color: var(--secondary-color);
-    border: none;
-    color: var(--text-light);
-}
-
-/* Example: Weather tag style - adjust colors as needed */
-.hotel .hotel-details .weather-info {
-    background-color: #e0f0ff; /* Example light blue */
-    color: #0056b3; /* Example darker blue */
-    border-color: #b8d6f3; /* Example blue border */
-    font-size: var(--base-font-size);
-}
-.hotel .hotel-details .weather-info img {
-    width: 18px; /* Slightly smaller consistent size */
-    height: 18px;
+.weather-info-box img {
+    width: 20px;
+    height: 20px;
+    vertical-align: middle;
     margin: 0;
-    vertical-align: middle; /* Helps align inline images */
 }
 
-/* Example: Accessibility tag style */
-.hotel .hotel-details .accessibility-feature {
-    background-color: var(--info-bg-light);
-    color: var(--text-color);
-    padding: 5px;
-    font-size: var(--base-font-size);
-    border-color: var(--info-border);
-    border-radius: var(--border-radius-medium);
-}
 
-.hotel .nearby-places-info {
+
+.nearby-places-info {
     margin-top: 12px; /* Space above this section */
     padding: 10px; /* Inner padding */
     background-color: #fdfdfd; /* Very subtle background difference */
@@ -340,7 +249,7 @@ html, body {
     text-align: center;
 }
 
-.hotel .nearby-places-info h4 {
+.nearby-places-info h4 {
     margin: 0 0 6px 0; /* Space below heading */
     font-size: var(--base-font-size); /* Slightly smaller heading */
     font-weight: 600;
@@ -349,12 +258,12 @@ html, body {
 }
 
 /* Optional: Style star icon within heading if needed */
-.hotel .nearby-places-info h4 .star-icon {
+.nearby-places-info h4 .star-icon {
     font-size: 1.5em; /* Make star slightly smaller than text */
     vertical-align: baseline; /* Adjust alignment if needed */
 }
 
-.hotel .nearby-places-info p {
+.nearby-places-info p {
     font-size: var(--base-font-size);
     color: var(--text-light);
     display: flex; /* Use flexbox for spacing the place types */
@@ -362,7 +271,7 @@ html, body {
 }
 
 /* Style individual place type groups (icon + number) */
-.hotel .nearby-places-info .place-type {
+.nearby-places-info .place-type {
     display: inline-flex; /* Align icon and number */
     align-items: center;
     margin-right: 15px; /* Space between icon and number */
@@ -370,61 +279,10 @@ html, body {
 }
 
 /* Style the icon within the place type span */
-.hotel .nearby-places-info .icon {
+.nearby-places-info .icon {
     font-size: 1.55em; /* Make icon slightly larger */
     line-height: 1; /* Adjust if vertical alignment needed */
 }
-
-
-/* --- Loading Overlay --- */
-#loading-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    height: 100%;
-    width: 100%;
-    background-color: var(--overlay-bg); /* Use variable */
-    font-size: 2.5rem;
-    text-align: center;
-    font-weight: bold;
-    font-family: var(--font-family-primary);
-    color: var(--white);
-    z-index: 9999; /* Highest */
-    display: none; /* Controlled by JS */
-    align-items: center;
-    justify-content: center;
-    flex-direction: row; /* To stack text and spinner if needed */
-   
-}
-
-/* Add animated dots using ::after */
-#loading-overlay::after {
-    content: '.';
-    display: inline-block;
-    margin-left: 5px;
-    width: 1.5em; /* Reserve space */
-    text-align: left;
-    animation: loading-dots 1.4s infinite;
-}
-
-@keyframes loading-dots {
-    0%, 20% { content: '.'; }
-    40% { content: '..'; }
-    60%, 100% { content: '...'; } /* Hold ... longer */
-}
-
-/* Optional: You still have a .spinner class in HTML, style it if needed */
-/* Example basic spinner: */
-.spinner {
-    border: 4px solid rgba(255, 255, 255, 0.3); /* Light border */
-    border-left-color: var(--white); /* Loading color */
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    animation: spin 1s linear infinite;
-    /* display: none; If used within the overlay, overlay controls visibility */
-}
-
 
 
 /* ==========================================================================
@@ -447,7 +305,7 @@ html, body {
     position: absolute;
     top: 5px;
     right: 5px;
-    width: 30%;
+    width: 350px;
     background: white;
     border-radius: 12px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.15);
@@ -504,4 +362,8 @@ html, body {
 #sponsored-hotel-name {
     text-align: center;
     font-size: 15px;
+}
+
+.light-popover {
+  color-scheme: light 
 }
