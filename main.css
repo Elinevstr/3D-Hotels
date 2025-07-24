@@ -1,188 +1,212 @@
 /* ==========================================================================
    1. Variables & Global Styles
    ========================================================================== */
-@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:ital,wght@0,100..900;1,100..900&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Intel+One+Mono:ital,wght@0,300..700;1,300..700&family=Inter+Tight:ital,wght@0,100..900;1,100..900&display=swap");
 :root {
-    /* Colors */
-    --primary-color: #007bff;    /* Vibrant blue */
-    --secondary-color: #f8f9fa; /* Light grey background */
-    --heading-color: #062240;    /* Dark blue for headings/prominent text */
-    --text-color: #343a40;       /* Dark grey for body text */
-    --text-light: #6c757d;      /* Lighter grey for secondary text */
-    --border-color: #dee2e6;     /* Subtle border */
-    --white: #ffffff;
-    --danger-color: #dc3545;     /* Red for errors */
-    --warning-color: #e67e22;   /* Orange for ratings */
-    --success-bg-light: #e0fdee; /* Light green background for price */
-    --success-border: #a3e9b8;   /* Subtle green border */
-    --info-bg-light: #e9ecef;    /* Light grey for generic tags */
-    --info-border: #ced4da;      /* Medium grey border */
-    --overlay-bg: rgba(0, 51, 102, 0.959); /* Dark semi-transparent overlay */
-    --shadow-color: rgba(0, 0, 0, 0.1);
-    --shadow-color-hover: rgba(0, 0, 0, 0.15);
-    --popup-bg: rgba(255, 255, 255, 0.95); /* Semi-transparent white for popup */
-    --gmp-mat-color-outline-decorative: white;
-    --gmp-mat-color-surface: white;
-    --gmp-mat-color-on-surface: rgb(32, 20, 107);
-    --gmp-mat-color-on-surface-variant: rgb(67, 47, 194);
-    --gmp-mat-color-primary: rgb(236, 114, 135);
-    --gmp-mat-color-secondary-container: pink;
-    --gmp-mat-color-on-secondary-container: purple;
-    --gmp-mat-color-disabled-surface: black;
-    --gmp-mat-font-family: "Inter Tight", sans-serif;
-    --gmp-mat-font-display-small: "bold";
+  /* Colors */
+  --primary-color: #007bff; /* Vibrant blue */
+  --secondary-color: #f8f9fa; /* Light grey background */
+  --heading-color: #062240; /* Dark blue for headings/prominent text */
+  --text-color: #343a40; /* Dark grey for body text */
+  --text-light: #6c757d; /* Lighter grey for secondary text */
+  --border-color: #dee2e6; /* Subtle border */
+  --white: #ffffff;
+  --danger-color: #dc3545; /* Red for errors */
+  --warning-color: #e67e22; /* Orange for ratings */
+  --success-bg-light: #e0fdee; /* Light green background for price */
+  --success-border: #a3e9b8; /* Subtle green border */
+  --info-bg-light: #e9ecef; /* Light grey for generic tags */
+  --info-border: #ced4da; /* Medium grey border */
+  --overlay-bg: rgba(0, 51, 102, 0.959); /* Dark semi-transparent overlay */
+  --shadow-color: rgba(0, 0, 0, 0.1);
+  --shadow-color-hover: rgba(0, 0, 0, 0.15);
+  --popup-bg: rgba(255, 255, 255, 0.95); /* Semi-transparent white for popup */
+  --gmp-mat-color-outline-decorative: white;
+  --gmp-mat-color-surface: white;
+  --gmp-mat-color-on-surface: rgb(32, 20, 107);
+  --gmp-mat-color-on-surface-variant: rgb(67, 47, 194);
+  --gmp-mat-color-primary: rgb(236, 114, 135);
+  --gmp-mat-color-secondary-container: pink;
+  --gmp-mat-color-on-secondary-container: purple;
+  --gmp-mat-color-disabled-surface: black;
+  --gmp-mat-font-family: "Inter Tight", sans-serif;
+  --gmp-circle-font-family: "Intel One Mono", monospace;
 
+  --gmp-mat-font-display-small: "bold";
 
+  --header-height: 60px;
 
+  /* Layout */
 
+  /* Typography */
+  --font-family-primary: "Poppins", Arial, sans-serif;
+  --base-font-size: 15px;
 
+  /* Borders & Shadows */
+  --border-radius-small: 4px;
+  --border-radius-medium: 6px;
+  --border-radius-large: 8px;
+  --box-shadow-soft: 0 2px 5px var(--shadow-color);
+  --box-shadow-medium: 0 3px 6px var(--shadow-color);
+  --box-shadow-hover: 0 6px 12px var(--shadow-color-hover);
 
-    /* Layout */
- 
-    /* Typography */
-    --font-family-primary: 'Poppins', Arial, sans-serif;
-    --base-font-size: 15px;
-
-    /* Borders & Shadows */
-    --border-radius-small: 4px;
-    --border-radius-medium: 6px;
-    --border-radius-large: 8px;
-    --box-shadow-soft: 0 2px 5px var(--shadow-color);
-    --box-shadow-medium: 0 3px 6px var(--shadow-color);
-    --box-shadow-hover: 0 6px 12px var(--shadow-color-hover);
-
-    /* Transitions */
-    --transition-speed: 0.2s;
-    --transition-timing: ease-in-out;
+  /* Transitions */
+  --transition-speed: 2s;
+  --transition-timing: ease-in-out;
+}
+.main-container {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  gap: 10px;
+  padding: 70px 10px 15px 10px;
+  height: 86vh;
+  margin: 0;
+  background-color: rgb(253, 222, 227);
+}
+footer p {
+  font-size: 8px;
+  padding: 0 0 0 10px;
+  margin: 0;
+  height: 2vh;
+  color: #29314a;
+  background-color: rgb(253, 222, 227);
+}
+footer a {
+  color: #f3474f;
 }
 
 /* General Styles */
-html, body {
-    height: 100%;
-    width: 96vw;
-    gap: 20px;
-    padding: 5px;
-  
-    font-family: var(--font-family-primary);
-    background-color: var(--secondary-color);
-    color: var(--text-color);
-    font-size: var(--base-font-size);
-    /* Flex on body helps ensure .content grows if needed, but might be overkill */
-    display: flex;
-    flex-direction: row;
+html,
+body {
+  font-family: var(--font-family-primary);
+  height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 /* ==========================================================================
    2. Layout: Header, Sidebar, Content Area
    ========================================================================== */
 
-   .header {
-    background-color: var(--white);
-    padding: 0 25px; /* Existing padding */
-    height: var(--header-height);
-    box-shadow: var(--box-shadow-soft);
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 98%;
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    /* NEW: Distribute space between title and menu */
-    justify-content: space-between;
+/* Dropdown: always fixed, start centered */
+.expanded {
+  height: 100vh;
+  background-color: #ffbbbe;
 }
 
+#main-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 1000;
+  transition: height var(--transition-speed) ease;
+}
+
+/* Final layout of dropdown container — we use this from the start */
+#dropdown-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 75%;
+  gap: 5px;
+  padding: 5px;
+  border-radius: 0 0 12px 0;
+  background-color: #ffbbbe;
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: row;
+  align-items: center;
+
+  /* Start off in center with transform */
+  transform: translate(10%, 45vh); /* roughly center */
+  transition: transform var(--transition-speed) ease;
+}
+
+/* Move to final position */
+#dropdown-container.active {
+  transform: translate(0, 0);
+}
+gmp-place-autocomplete {
+  color-scheme: light;
+  border: 1px solid pink;
+  width: 250px;
+  height: 30px;
+}
+.category-dropdown {
+  border-radius: 12px;
+  max-width: 175px;
+  height: 30px;
+
+  border: 1px solid pink;
+  text-align: center;
+  padding: 3px;
+}
+#gobutton {
+  border-radius: 12px;
+  min-width: 100px;
+  background-color: #29314a;
+  height: 30px;
+  cursor: pointer;
+  color: white;
+  border: 1px solid #29314a;
+  text-align: center;
+  padding: 5px;
+}
+#gobutton:hover {
+  background-color: white;
+  color: #29314a;
+}
+#back-to-hotels-btn {
+  margin: 20px;
+  z-index: 1000;
+  border-radius: 12px;
+  min-width: 80%;
+  background-color: white;
+  height: 30px;
+  cursor: pointer;
+  border: 1px solid pink;
+  text-align: center;
+  padding: 3px;
+}
+#back-to-hotels-btn:hover {
+  background-color: hotpink;
+  color: white;
+}
 /* === NEW: Styles for Header Title Container === */
 .header-title {
-    display: flex; /* Align icon and text */
-    align-items: center;
-    font-size: 22px; /* Moved from .header */
-    font-weight: 600; /* Moved from .header */
-    color: var(--heading-color); /* Moved from .header */
+  display: flex; /* Align icon and text */
+  align-items: center;
+  font-size: 22px; /* Moved from .header */
+  font-weight: 600; /* Moved from .header */
+  color: var(--heading-color); /* Moved from .header */
 }
 
 .header-icon {
-    margin-right: 10px;
-    font-size: 26px;
-    line-height: 1; /* Adjust vertical alignment if needed */
+  margin-right: 10px;
+  font-size: 26px;
+  line-height: 1; /* Adjust vertical alignment if needed */
 }
-
-/* === NEW: Styles for Header Menu === */
-.header-menu {
-    display: flex;
-    align-items: center;
-    gap: 20px; /* Spacing between menu items */
-}
-
-.menu-item {
-    font-size: 15px; /* Adjust as needed */
-    font-weight: 500;
-    color: var(--text-color);
-    text-decoration: none; /* Remove underline from links */
-    padding: 8px 12px; /* Add some padding for click area */
-    border-radius: var(--border-radius-small);
-    transition: background-color var(--transition-speed) var(--transition-timing), color var(--transition-speed) var(--transition-timing);
-    cursor: pointer;
-    background: none; /* Ensure buttons have no default background */
-    border: none; /* Ensure buttons have no default border */
-    white-space: nowrap; /* Prevent wrapping */
-}
-
-.menu-item:hover {
-    background-color: var(--secondary-color); /* Light background on hover */
-    color: var(--primary-color); /* Highlight color on hover */
-}
-
-/* Specific styles for menu button, if needed */
-.menu-button {
-    background-color: var(--primary-color);
-    color: var(--white);
-    border: 1px solid var(--primary-color);
-}
-
-.menu-button:hover {
-    background-color: #0056b3; /* Darker blue on hover */
-    border-color: #0056b3;
-    color: var(--white); /* Keep text white on hover */
-}
-
 
 .sidebar {
-    flex-basis: 30%;
-    border-radius: 12px;
-    top: var(--header-height); /* Position below header */
-    background: var(--white);
-    position: fixe;
-    color: var(--heading-color); /* Use variable */
-    overflow-y: auto;
-    height: 95%;
-    box-shadow: -2px 0 8px var(--shadow-color);
-    border-left: 1px solid var(--border-color);
-    display: flex; /* Use flex for internal layout */
-    flex-direction: column; /* Stack header and list */
-}
-
-.sidebar h2 {
-    text-align: center;
-    padding: 15px 10px;
-    margin: 0;
-    background: var(--secondary-color);
-    border-bottom: 1px solid var(--border-color);
-    font-size: var(--base-font-size);
-    font-weight: 600;
-    color: var(--heading-color); /* Use variable */
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    position: sticky; /* Keep header visible when scrolling */
-    top: 0;
-    z-index: 10; /* Ensure it's above hotel list */
-    flex-shrink: 0; /* Prevent h2 from shrinking */
+  flex-basis: 30%;
+  border-radius: 12px;
+  align-items: center;
+  top: var(--header-height); /* Position below header */
+  background: var(--white);
+  position: fixe;
+  color: var(--heading-color); /* Use variable */
+  overflow-y: auto;
+  height: 100%;
+  box-shadow: -2px 0 8px var(--shadow-color);
+  border-left: 1px solid var(--border-color);
 }
 
 .content {
-    flex-basis: 70%;  
-    position: relative; /* Needed for absolute positioning of children */
-    display: flex; /* Needed to make map child fill the area */
+  flex-basis: 70%;
+  position: relative; /* Needed for absolute positioning of children */
+  display: flex; /* Needed to make map child fill the area */
 }
 
 /* ==========================================================================
@@ -191,179 +215,305 @@ html, body {
 
 /* --- Map --- */
 #map {
-    height: 95%;
-    width: 100%;
-    border: none;
-    border-radius: 12px;
+  height: 100%;
+  width: 100%;
+  border: none;
+  border-radius: 12px;
 }
 
 /* Optional - Activity Marker Style */
 .activity {
-    background-color: var(--primary-color);
-    border-radius: 12px; /* Pill shape */
-    color: var(--white);
-    font-size: var(--base-font-size);
-    font-weight: 500;
-    padding: 6px 12px;
-    position: relative;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.6);
-    white-space: nowrap;
+  background-color: var(--primary-color);
+  border-radius: 12px; /* Pill shape */
+  color: var(--white);
+  font-size: var(--base-font-size);
+  font-weight: 500;
+  padding: 6px 12px;
+  position: relative;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  white-space: nowrap;
 }
-
-
 
 /* Weather info styling for sponsored activities */
 .weather-info-box {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    z-index: 998;
-    background-color: #d6e6f8f1; /* Default, overridden dynamically */
-    color: #f8f8f8;
-    border-radius: 6px;
-    padding: 6px 10px;
-    font-size: var(--base-font-size);
-    align-items: center;
-    gap: 6px;
-    display: none;
-    box-shadow: var(--box-shadow-soft);
-    transition: background-color 0.3s ease;
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 998;
+  background-color: #d6e6f8f1; /* Default, overridden dynamically */
+  color: #f8f8f8;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: var(--base-font-size);
+  align-items: center;
+  gap: 6px;
+  display: none;
+  box-shadow: var(--box-shadow-soft);
+  transition: background-color 0.3s ease;
 }
 
 .weather-info-box img {
-    width: 20px;
-    height: 20px;
-    vertical-align: middle;
-    margin: 0;
+  width: 20px;
+  height: 20px;
+  vertical-align: middle;
+  margin: 0;
 }
 
-
-
 .nearby-places-info {
-    margin-top: 12px; /* Space above this section */
-    padding: 10px; /* Inner padding */
-    background-color: #fdfdfd; /* Very subtle background difference */
-    border: 1px solid var(--border-color); /* Optional border */
-    border-radius: var(--border-radius-medium); /* Consistent rounding */
-    text-align: center;
+  margin-top: 12px; /* Space above this section */
+  padding: 10px; /* Inner padding */
+  background-color: #fdfdfd; /* Very subtle background difference */
+  border: 1px solid var(--border-color); /* Optional border */
+  border-radius: var(--border-radius-medium); /* Consistent rounding */
+  text-align: center;
 }
 
 .nearby-places-info h4 {
-    margin: 0 0 6px 0; /* Space below heading */
-    font-size: var(--base-font-size); /* Slightly smaller heading */
-    font-weight: 600;
-    color: var(--text-color);
-    line-height: 1.4;
+  margin: 0 0 6px 0; /* Space below heading */
+  font-size: var(--base-font-size); /* Slightly smaller heading */
+  font-weight: 600;
+  color: var(--text-color);
+  line-height: 1.4;
 }
 
 /* Optional: Style star icon within heading if needed */
 .nearby-places-info h4 .star-icon {
-    font-size: 1.5em; /* Make star slightly smaller than text */
-    vertical-align: baseline; /* Adjust alignment if needed */
+  font-size: 1.5em; /* Make star slightly smaller than text */
+  vertical-align: baseline; /* Adjust alignment if needed */
 }
 
 .nearby-places-info p {
-    font-size: var(--base-font-size);
-    color: var(--text-light);
-    display: flex; /* Use flexbox for spacing the place types */
-    gap: 50px; /* Space between "🍴 48", "🛍️ 84", etc. */
+  font-size: var(--base-font-size);
+  color: var(--text-light);
+  display: flex; /* Use flexbox for spacing the place types */
+  gap: 50px; /* Space between "🍴 48", "🛍️ 84", etc. */
 }
 
 /* Style individual place type groups (icon + number) */
 .nearby-places-info .place-type {
-    display: inline-flex; /* Align icon and number */
-    align-items: center;
-    margin-right: 15px; /* Space between icon and number */
-    white-space: nowrap;
+  display: inline-flex; /* Align icon and number */
+  align-items: center;
+  margin-right: 15px; /* Space between icon and number */
+  white-space: nowrap;
 }
 
 /* Style the icon within the place type span */
 .nearby-places-info .icon {
-    font-size: 1.55em; /* Make icon slightly larger */
-    line-height: 1; /* Adjust if vertical alignment needed */
+  font-size: 1.55em; /* Make icon slightly larger */
+  line-height: 1; /* Adjust if vertical alignment needed */
 }
-
 
 /* ==========================================================================
    4. Utilities
    ========================================================================== */
 
 .error-message {
-    color: var(--danger-color); /* Use variable */
-    font-weight: 500;
-    font-size: 13px;
-    margin-top: 5px;
+  color: var(--danger-color); /* Use variable */
+  font-weight: 500;
+  font-size: 13px;
+  margin-top: 5px;
 }
 
 /* Example utility class */
 .hidden {
-    display: none !important; /* Force hide */
+  display: none !important; /* Force hide */
 }
 
 .sponsored-popup {
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    width: 350px;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.15);
-    padding: 16px;
-    z-index: 999;
-    display: none;
-    flex-direction: column;
-    font-family: 'Poppins', sans-serif;
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 350px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+  padding: 16px;
+  z-index: 999;
+  display: none;
+  flex-direction: column;
+  font-family: "Poppins", sans-serif;
 }
 
 .sponsored-popup.visible {
-    display: flex;
+  display: flex;
 }
 
 .sponsored-popup .close-btn {
-    position: absolute;
-    top: 8px;
-    right: 10px;
-    background: none;
-    border: none;
-    font-size: 16px;
-    cursor: pointer;
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
 }
 
 .sponsored-activity {
-    display: flex;
-    flex-direction: row;
-    gap: 10px;
-    align-items: flex-start;
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  align-items: flex-start;
 }
 
 .sponsored-activity img {
-    width: 70px;
-    height: 70px;
-    margin: 2.5px 0 2.5px 0;
-    border-radius: 8px;
-    object-fit: cover;
+  width: 70px;
+  height: 70px;
+  margin: 2.5px 0 2.5px 0;
+  border-radius: 8px;
+  object-fit: cover;
 }
 
 .sponsored-activity .activity-text {
-    flex: 1;
+  flex: 1;
 }
 
 .sponsored-activity .activity-text h4 {
-    margin: 0;
-    font-size: 14px;
+  margin: 0;
+  font-size: 14px;
 }
 
 .sponsored-activity .activity-text p {
-    margin-top: 0px;
-    font-size: 12px;
-    color: #444;
+  margin-top: 0px;
+  font-size: 12px;
+  color: #444;
 }
 #sponsored-hotel-name {
-    text-align: center;
-    font-size: 15px;
+  text-align: center;
+  font-size: 15px;
 }
 
 .light-popover {
-  color-scheme: light 
+  color-scheme: light;
+}
+.fullscreen-inner {
+  height: 100%; /* match header.expanded */
+  width: 100%;
+  position: relative;
+}
+#rome-card {
+  left: 30%;
+  bottom: 40%;
+  position: absolute;
+}
+#ny-card {
+  left: 10%;
+  bottom: 40%;
+  position: absolute;
+}
+#swiss-card {
+  left: 50%;
+  bottom: 40%;
+  position: absolute;
+}
+#tokyo-card {
+  left: 70%;
+  bottom: 40%;
+  position: absolute;
+}
+
+#logo {
+  left: 40%;
+  top: 5%;
+  position: absolute;
+  width: 300px;
+}
+#dropdown-logo {
+  display: none;
+  width: 5%;
+  margin: 0 10px 0 10px;
+}
+/* Link Wrapper for Card */
+#card-container button {
+  background-color: transparent;
+  padding: 10px;
+  border: none;
+  cursor: pointer;
+}
+#card-container button:hover {
+  animation: vertical-shaking 0.5s infinite;
+}
+
+.card {
+  font-family: var(--gmp-circle-font-family);
+  width: 200px;
+  margin: 20px;
+  position: absolute;
+}
+
+.circle-wrapper {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  margin: 0 auto;
+}
+
+.card-image {
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+
+.arc-text {
+  position: absolute;
+  width: 100%;
+  text-align: center;
+  font-weight: bold;
+  font-size: 16px;
+  color: #062240;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.arc-top {
+  top: -45px;
+}
+
+.arc-bottom {
+  bottom: -45px;
+}
+
+#dropdown-container.no-transition {
+  transition: none !important;
+}
+@keyframes vertical-shaking {
+  0% {
+    transform: translateY(0);
+  }
+  25% {
+    transform: translateY(5px);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+  75% {
+    transform: translateY(5px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+#ai-route-loading {
+  background-color: #fff7fb;
+  border-left: 4px solid #ea35c6;
+  font-family: "Poppins", sans-serif;
+  font-weight: 500;
+  color: #444;
+  min-height: 100px;
+}
+
+.loading-step {
+  opacity: 0;
+  transform: translateY(10px);
+  animation: fadeInUp 0.5s forwards;
+  margin-bottom: 8px;
+}
+
+@keyframes fadeInUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

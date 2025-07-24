@@ -1,0 +1,67 @@
+{
+  "Culture & History": 
+  {
+    "DisplayName": "🏛️ Culture & History",
+    "short": "culture",
+    "types": [
+    "art_gallery",
+    "museum",
+    "historical_place",
+    "monument",
+    "performing_arts_theater",
+    "cultural_landmark"
+  ]},
+  "Food & Drink": 
+    {
+    "DisplayName": "🍴 Food & Drink",
+    "short": "food",
+    "types": [
+    "restaurant",
+    "cafe",
+    "bar"
+  ]},
+  "Nature & Outdoors":
+  {
+    "DisplayName": "🌳 Nature & Outdoors",
+    "short": "nature",
+    "types": [
+    "park",
+    "beach",
+    "hiking_area",
+    "botanical_garden",
+    "national_park",
+    "wildlife_park"
+  ]},
+  "Shopping": {
+    "DisplayName": "🛍️ Shopping",
+    "short": "shops",
+    "types": [
+    "shopping_mall",
+    "clothing_store",
+    "book_store",
+    "gift_shop"
+  ]},
+  "Entertainment & Nightlife": {
+    "DisplayName": "🍿 Entertainment & Nightlife",
+    "short": "entertainement",
+    "types": [
+    "movie_theater",
+    "concert_hall",
+    "amusement_park",
+    "night_club",
+    "casino",
+    "comedy_club"
+  ]
+},
+  "Relaxation & Wellness": {
+    "DisplayName": "🧘 Relaxation & Wellness",
+    "short": "welness",
+    "types": [
+    "spa",
+    "sauna",
+    "wellness_center",
+    "yoga_studio",
+    "massage"
+  ]
+}
+}

@@ -1,15 +1,78 @@
 <!DOCTYPE html>
 <html>
-<head>
+  <head>
     <title>Travel App - Localyse Demo</title>
-    <link rel="stylesheet" href="main.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="main.css" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="expanded" id="main-header">
+      <div class="fullscreen-inner">
+      <img src="imgs/roamly-logo.png" id="logo" alt="logo"loading="lazy"/>
+      <div id="card-container">
+            <button onclick="hotelMapApp.gotopresetplace('Rome','Food & Drink', 'Culture & History', {lat: 41.899858512899556, lng: 12.480297389326685})" id="rome-card"> 
+                <div class="card">
+                   <div class="circle-wrapper">
+                      <img src="imgs/rome.jpg" alt="Travel App Demo" class="card-image" loading="lazy"/>
+                      <p class="arc-text arc-top">Food and history!</p>
+                      <p class="arc-text arc-bottom">in Rome</p>
+                    </div>
+                </div>
+              </button>
+            <button onclick="hotelMapApp.gotopresetplace('New York City','Shopping', 'Entertainment & Nightlife', {lat: 40.730545330157916, lng: -73.99633893659198})" id="ny-card"> 
+                <div class="card">
+                  <div class="circle-wrapper">
 
-</head>
-<body>
+                    <img src="imgs/new-york.jpg" alt="Travel App Demo" class="card-image" loading="lazy"/>
+               
+                    <p class="arc-text arc-top">Nightlife and Shopping</p>
+                    <p class="arc-text arc-bottom"> In New York City</p>
+                 </div>
+                </div>
+              </button>
+               
+                 <button onclick="hotelMapApp.gotopresetplace('Zermatt','Relaxation & Wellness', 'Nature & Outdoors', {lat: 46.022801356552414, lng: 7.7520209377576075})" id="swiss-card"> 
+                <div class="card">
+                  <div class="circle-wrapper">
 
- <!--   <div class="header">
-        <div class="header-title">
+                  <img src="imgs/zermatt.jpg" alt="Travel App Demo" class="card-image" loading="lazy"/>
+              
+                    <p class="arc-text arc-top"> Nature and Wellness</p>
+                    <p class="arc-text arc-bottom">In the Swiss mountains!</p>
+                  </div>
+                </div>
+              </button>
+            <button onclick="hotelMapApp.gotopresetplace('Tokyo','Shopping', 'Food & Drink', {lat: 35.681762113399564, lng: 139.7559647472117})" id="tokyo-card"> 
+                <div class="card">
+                <div class="circle-wrapper">
+
+                <img src="imgs/tokyo.jpg" alt="Travel App Demo" class="card-image" loading="lazy"/>
+                
+                    <p class="arc-text arc-top">Shopping and food!</p>
+                    <p class="arc-text arc-bottom">In Tokyo!</p>
+                  </div>  
+                </div>
+        </button>
+    
+        </div>
+        </div>
+      <div id="dropdown-container" class="no-transition">
+        <img src="imgs/roamly-logo.png" id="dropdown-logo" alt="logo"loading="lazy"/>
+        <p>I want to go to</p>
+        <div class="place-autocomplete-card" id="place-autocomplete-card"></div>
+
+        <label for="category-dropdown-1">And I prefer </label>
+        <select id="category-dropdown-1" class="category-dropdown"></select>
+
+        <label for="category-dropdown-2"> and </label>
+        <select id="category-dropdown-2" class="category-dropdown"></select>
+        <button id="gobutton">Find me a place to stay!</button>
+      </div>
+       </div>
+      <!--  <div class="header-title">
             <span class="header-icon">✈️</span> LOCALYSE TRAVEL APP
         </div>
    
@@ -18,52 +81,132 @@
             <a href="#explore" class="menu-item">Explore</a>
             <a href="#saved" class="menu-item">Saved Trips</a>
             <button class="menu-item menu-button">Login</button>
-        </nav>
-    </div>-->
-    <div class="content">
+        </nav>-->
+    </div>
+
+    <div class="main-container">
+      <div class="content">
         <div id="map"></div>
-         <div id="weather-info" class="weather-info-box">
-        </div>
+        <div id="weather-info" class="weather-info-box"></div>
         <div id="sponsored-popup" class="sponsored-popup">
-            <button class="close-btn" onclick="document.getElementById('sponsored-popup').classList.remove('visible')">✖</button>
-            <h3 id="sponsored-hotel-name"></h3>
-            <div id="sponsored-activities-container"></div>
+          <button
+            class="close-btn"
+            onclick="document.getElementById('sponsored-popup').style.display = 'none'"
+          >
+            ✖
+          </button>
+          <h3 id="sponsored-hotel-name"></h3>
+          <div id="sponsored-activities-container"></div>
         </div>
+      </div>
+
+      <div class="sidebar">
+        <button
+          id="back-to-hotels-btn"
+          class="back-button"
+          style="display: none"
+        >
+          ← Back to Hotels
+        </button>
+        <button
+          class="back-button"
+          onclick="hotelMapApp.AIWalkingRoute()"
+        >
+          Generate a walking route
+        </button>
+        <div id="ai-route-loading" style="display: none; padding: 20px; font-size: 16px;">
+          <div id="loading-steps-container"></div>
+        </div>
+
+        <div id="ai-route-container" style="display: none;">
+          <button id="back-to-hotels-from-route-btn" class="back-button">← Back to Hotels</button>
+          <div id="ai-route-summary"></div>
+          <div id="ai-route-stops"></div>
+        </div>
+        <div class="list-container">
+          <gmp-place-search orientation="vertical" selectable>
+            <gmp-place-all-content> </gmp-place-all-content>
+            <gmp-place-text-search-request></gmp-place-text-search-request>
+          </gmp-place-search>
+        </div>
+
+        <gmp-place-details style="display: none">
+          <gmp-place-details-place-request></gmp-place-details-place-request>
+          <gmp-place-content-config>
+            <gmp-place-address></gmp-place-address>
+            <gmp-place-rating></gmp-place-rating>
+            <gmp-place-price></gmp-place-price>
+            <gmp-place-accessible-entrance-icon></gmp-place-accessible-entrance-icon>
+            <gmp-place-opening-hours></gmp-place-opening-hours>
+            <gmp-place-website></gmp-place-website>
+            <gmp-place-phone-number></gmp-place-phone-number>
+            <gmp-place-summary></gmp-place-summary>
+            <gmp-place-type-specific-highlights></gmp-place-type-specific-highlights>
+            <gmp-place-reviews></gmp-place-reviews>
+            <gmp-place-feature-list></gmp-place-feature-list>
+            <gmp-place-media lightbox-preferred></gmp-place-media>
+            <gmp-place-attribution
+              light-scheme-color="black"
+              dark-scheme-color="black"
+            ></gmp-place-attribution>
+          </gmp-place-content-config>
+        </gmp-place-details>
+      </div>
     </div>
 
-    <div class="sidebar">
-        <div class="place-autocomplete-card" id="place-autocomplete-card">
-        </div>
-          
-            <div class="list-container">
-                <gmp-place-list selectable style="display: none;"></gmp-place-list>
-            </div>
-
-            <gmp-place-details style="display: none;">
-                <gmp-place-details-place-request></gmp-place-details-place-request>
-                    <gmp-place-content-config>
-                        <gmp-place-address></gmp-place-address>
-                        <gmp-place-rating></gmp-place-rating>
-                        <gmp-place-price></gmp-place-price>
-                        <gmp-place-accessible-entrance-icon></gmp-place-accessible-entrance-icon>
-                        <gmp-place-opening-hours></gmp-place-opening-hours>
-                        <gmp-place-website></gmp-place-website>
-                        <gmp-place-phone-number></gmp-place-phone-number>
-                        <gmp-place-summary></gmp-place-summary>
-                        <gmp-place-type-specific-highlights></gmp-place-type-specific-highlights>
-                        <gmp-place-reviews></gmp-place-reviews>
-                        <gmp-place-feature-list></gmp-place-feature-list>
-                        <gmp-place-media lightbox-preferred></gmp-place-media>
-                        <gmp-place-attribution  light-scheme-color="black" dark-scheme-color="black"></gmp-place-attribution>
-                    </gmp-place-content-config>
-            </gmp-place-details>
-            
-      <!-- <div class="hotel-list" id="hotel-list">--> 
-        </div>
-    </div>
-      <script>(g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})
-        ({key: "AIzaSyCVNX6mCprAYiGp8RUaf9yc6H-00fLR1Ns", v: "alpha"});</script>
+    <script>
+      ((g) => {
+        var h,
+          a,
+          k,
+          p = "The Google Maps JavaScript API",
+          c = "google",
+          l = "importLibrary",
+          q = "__ib__",
+          m = document,
+          b = window;
+        b = b[c] || (b[c] = {});
+        var d = b.maps || (b.maps = {}),
+          r = new Set(),
+          e = new URLSearchParams(),
+          u = () =>
+            h ||
+            (h = new Promise(async (f, n) => {
+              await (a = m.createElement("script"));
+              e.set("libraries", [...r] + "");
+              for (k in g)
+                e.set(
+                  k.replace(/[A-Z]/g, (t) => "_" + t[0].toLowerCase()),
+                  g[k]
+                );
+              e.set("callback", c + ".maps." + q);
+              a.src = `https://maps.${c}apis.com/maps/api/js?` + e;
+              d[q] = f;
+              a.onerror = () => (h = n(Error(p + " could not load.")));
+              a.nonce = m.querySelector("script[nonce]")?.nonce || "";
+              m.head.append(a);
+            }));
+        d[l]
+          ? console.warn(p + " only loads once. Ignoring:", g)
+          : (d[l] = (f, ...n) => r.add(f) && u().then(() => d[l](f, ...n)));
+      })({ key: "AIzaSyCVNX6mCprAYiGp8RUaf9yc6H-00fLR1Ns", v: "alpha" });
+    </script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/circletype@2.3.0/dist/circletype.min.js"></script>
     <script src="hotels.js"></script>
-    <script src="main.js"></script>  
-</body>
+    <script src="main.js"></script>
+    <script>
+        $(document).ready(function () {
+          $('.arc-top').each(function () {
+            new CircleType(this).radius(140);
+            });
+            $('.arc-bottom').each(function () {
+              new CircleType(this).dir(-1).radius(130);
+            });
+        });
+    </script>
+  </body>
+  <footer>
+    <p>Made with ❤️ by <a href="https://www.linkedin.com/in/elinevanstraaten/">Eline van Straaten</a></p>
+  </footer>
 </html>
