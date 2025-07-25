@@ -13,53 +13,53 @@
       <div class="fullscreen-inner">
       <img src="imgs/roamly-logo.png" id="logo" alt="logo"loading="lazy"/>
       <div id="card-container">
-            <button onclick="hotelMapApp.gotopresetplace('Rome','Food & Drink', 'Culture & History', {lat: 41.899858512899556, lng: 12.480297389326685})" id="rome-card"> 
+            <button onclick="hotelMapApp.gotopresetplace('🍴 Food & Drink', '🏛️ Culture & History', {formattedAddress: 'Rome, Italy', location: { lat: 41.899858512899556, lng: 12.480297389326685}})" id="rome-card"> 
                 <div class="card">
                    <div class="circle-wrapper">
                       <img src="imgs/rome.jpg" alt="Travel App Demo" class="card-image" loading="lazy"/>
-                      <p class="arc-text arc-top">Food and history!</p>
+                      <p class="arc-text arc-top">Food and History</p>
                       <p class="arc-text arc-bottom">in Rome</p>
                     </div>
                 </div>
               </button>
-            <button onclick="hotelMapApp.gotopresetplace('New York City','Shopping', 'Entertainment & Nightlife', {lat: 40.730545330157916, lng: -73.99633893659198})" id="ny-card"> 
+            <button onclick="hotelMapApp.gotopresetplace('🛍️ Shopping', '🍴 Food & Drink', {formattedAddress: 'New York City, USA', location: { lat: 40.730545330157916, lng: -73.99633893659198}})" id="ny-card"> 
                 <div class="card">
                   <div class="circle-wrapper">
 
                     <img src="imgs/new-york.jpg" alt="Travel App Demo" class="card-image" loading="lazy"/>
                
-                    <p class="arc-text arc-top">Nightlife and Shopping</p>
-                    <p class="arc-text arc-bottom"> In New York City</p>
+                    <p class="arc-text arc-top">Nightlife and Food</p>
+                    <p class="arc-text arc-bottom"> in New York City</p>
                  </div>
                 </div>
               </button>
                
-                 <button onclick="hotelMapApp.gotopresetplace('Zermatt','Relaxation & Wellness', 'Nature & Outdoors', {lat: 46.022801356552414, lng: 7.7520209377576075})" id="swiss-card"> 
+                 <button onclick="hotelMapApp.gotopresetplace('🧘 Relaxation & Wellness', '🌳 Nature & Outdoors', {formattedAddress: 'Zermatt, Switzerland', location: { lat: 46.022801356552414, lng: 7.7520209377576075} })" id="swiss-card"> 
                 <div class="card">
                   <div class="circle-wrapper">
 
                   <img src="imgs/zermatt.jpg" alt="Travel App Demo" class="card-image" loading="lazy"/>
               
                     <p class="arc-text arc-top"> Nature and Wellness</p>
-                    <p class="arc-text arc-bottom">In the Swiss mountains!</p>
+                    <p class="arc-text arc-bottom">in the Swiss mountains!</p>
                   </div>
                 </div>
               </button>
-            <button onclick="hotelMapApp.gotopresetplace('Tokyo','Shopping', 'Food & Drink', {lat: 35.681762113399564, lng: 139.7559647472117})" id="tokyo-card"> 
+            <button onclick="hotelMapApp.gotopresetplace('🛍️ Shopping', '🍿 Entertainment & Nightlife', {formattedAddress: 'Tokyo, Japan', location: {lat: 35.681762113399564, lng: 139.7559647472117}})" id="tokyo-card"> 
                 <div class="card">
                 <div class="circle-wrapper">
 
                 <img src="imgs/tokyo.jpg" alt="Travel App Demo" class="card-image" loading="lazy"/>
                 
-                    <p class="arc-text arc-top">Shopping and food!</p>
-                    <p class="arc-text arc-bottom">In Tokyo!</p>
+                    <p class="arc-text arc-top">Shopping and Entertainment</p>
+                    <p class="arc-text arc-bottom">in Tokyo!</p>
                   </div>  
                 </div>
         </button>
     
         </div>
         </div>
-      <div id="dropdown-container" class="no-transition">
+      <div id="dropdown-container" >
         <img src="imgs/roamly-logo.png" id="dropdown-logo" alt="logo"loading="lazy"/>
         <p>I want to go to</p>
         <div class="place-autocomplete-card" id="place-autocomplete-card"></div>
@@ -69,7 +69,7 @@
 
         <label for="category-dropdown-2"> and </label>
         <select id="category-dropdown-2" class="category-dropdown"></select>
-        <button id="gobutton">Find me a place to stay!</button>
+        <button id="gobutton">🔍 Search</button>
       </div>
        </div>
       <!--  <div class="header-title">
@@ -86,8 +86,9 @@
 
     <div class="main-container">
       <div class="content">
-        <div id="map"></div>
+        <div id="map" style="display: none;"></div>
         <div id="weather-info" class="weather-info-box"></div>
+         <button  id="reset-camera-button" onclick="hotelMapApp.resetCamera()" style="display: none;">Reset camera</button>
         <div id="sponsored-popup" class="sponsored-popup">
           <button
             class="close-btn"
@@ -102,14 +103,25 @@
 
       <div class="sidebar">
         <button
-          id="back-to-hotels-btn"
-          class="back-button"
+          id="back-to-all-hotels-button"
+          class="sidebar-button"
           style="display: none"
+          onclick="hotelMapApp.backToAllHotels()"
         >
-          ← Back to Hotels
+          ← Back to all Hotels
+        </button>
+           <button
+          id="back-to-hotel-button"
+          class="sidebar-button"
+          style="display: none"
+          onclick="hotelMapApp.backToHotel()"
+        >
+          ← Back to Hotel
         </button>
         <button
-          class="back-button"
+          id="gen-route-button"
+          class="sidebar-button"
+          style="display: none"
           onclick="hotelMapApp.AIWalkingRoute()"
         >
           Generate a walking route
@@ -119,7 +131,6 @@
         </div>
 
         <div id="ai-route-container" style="display: none;">
-          <button id="back-to-hotels-from-route-btn" class="back-button">← Back to Hotels</button>
           <div id="ai-route-summary"></div>
           <div id="ai-route-stops"></div>
         </div>
@@ -196,14 +207,35 @@
     <script src="hotels.js"></script>
     <script src="main.js"></script>
     <script>
-        $(document).ready(function () {
-          $('.arc-top').each(function () {
-            new CircleType(this).radius(140);
-            });
-            $('.arc-bottom').each(function () {
-              new CircleType(this).dir(-1).radius(130);
-            });
-        });
+      $(document).ready(function () {
+  $('.arc-top, .arc-bottom').each(function () {
+    let $this = $(this);
+    let parentId = $this.closest('button').attr('id');
+    let radius;
+
+    switch (parentId) {
+      case 'rome-card':
+        radius = 125; // Half of 200px image width
+        break;
+      case 'ny-card':
+        radius = 115;  // Half of 180px
+        break;
+      case 'swiss-card':
+        radius = 110;  // Half of 170px
+        break;
+      case 'tokyo-card':
+        radius = 130; // Half of 210px
+        break;
+      default:
+        radius = 200; // fallback
+    }
+
+    const circle = new CircleType(this).radius(radius);
+    if ($this.hasClass('arc-bottom')) {
+      circle.dir(-1);
+    }
+  });
+});
     </script>
   </body>
   <footer>

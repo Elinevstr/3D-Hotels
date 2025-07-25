@@ -60,17 +60,17 @@
   justify-content: center;
   gap: 10px;
   padding: 70px 10px 15px 10px;
-  height: 86vh;
+  height: 88%;
   margin: 0;
-  background-color: rgb(253, 222, 227);
+  background-color: #fbf7dc;
 }
 footer p {
   font-size: 8px;
   padding: 0 0 0 10px;
   margin: 0;
-  height: 2vh;
+  height: 3vh;
   color: #29314a;
-  background-color: rgb(253, 222, 227);
+  background-color: #fbf7dc;
 }
 footer a {
   color: #f3474f;
@@ -89,88 +89,141 @@ body {
    2. Layout: Header, Sidebar, Content Area
    ========================================================================== */
 
-/* Dropdown: always fixed, start centered */
-.expanded {
-  height: 100vh;
-  background-color: #ffbbbe;
+#dropdown-container {
+  position: absolute;
+  top: 45%; /* Start at 50% of header height */
+  left: 0;
+  height: 60px;
+  width: 100%;
+  text-align: center;
+  color: #242f46;
+  gap: 25px;
+  background-color: #f8f0b6;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  /* Smooth transition - match header timing exactly */
+  transition: top var(--transition-speed) var(--transition-timing);
+
+  /* Center vertically in the header */
+  transform: translateY(-50%);
+
+  /* Add will-change for better performance during animation */
+  will-change: top;
 }
 
+/* Active state - moves to header position */
+#dropdown-container.active {
+  top: 0; /* Move to top of header */
+  transform: translateY(0); /* Reset transform */
+}
+
+/* Ensure the fullscreen content is hidden when transitioning */
+.fullscreen-inner {
+  height: 100%;
+  width: 100%;
+  position: relative;
+  transition: opacity 0.3s ease;
+}
+
+/* Hide fullscreen content when header is not expanded */
+#main-header:not(.expanded) .fullscreen-inner {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Header states and transitions */
 #main-header {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   z-index: 1000;
-  transition: height var(--transition-speed) ease;
+  /* Set a default header height */
+  height: var(--header-height); /* 60px */
+  background-color: #f8f0b6;
+  /* Use the same transition timing as dropdown */
+  transition: height var(--transition-speed) var(--transition-timing),
+    transform var(--transition-speed) var(--transition-timing);
+  overflow: visible; /* Allow dropdown to be visible during animation */
 }
 
-/* Final layout of dropdown container — we use this from the start */
-#dropdown-container {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 75%;
-  gap: 5px;
-  padding: 5px;
-  border-radius: 0 0 12px 0;
-  background-color: #ffbbbe;
-  display: flex;
-  flex-wrap: wrap;
-  flex-direction: row;
-  align-items: center;
-
-  /* Start off in center with transform */
-  transform: translate(10%, 45vh); /* roughly center */
-  transition: transform var(--transition-speed) ease;
+/* Expanded state - fullscreen */
+#main-header.expanded {
+  height: 100vh;
+  background-color: #f8f0b6;
+  transform: translateY(0); /* Normal position when expanded */
 }
 
-/* Move to final position */
-#dropdown-container.active {
-  transform: translate(0, 0);
+/* When transitioning to header mode, slide everything up */
+#main-header:not(.expanded) {
+  height: var(--header-height); /* Ensure header has height when not expanded */
+  transform: translateY(-100vh); /* Slide entire header up off-screen */
+}
+
+/* When header is in slide-back mode, return to normal position */
+#main-header.slide-back {
+  transform: translateY(0) !important; /* Override the slide-up */
+}
+
+/* Remove transition override when needed */
+#dropdown-container.no-transition {
+  transition: none !important;
+  will-change: auto;
 }
 gmp-place-autocomplete {
   color-scheme: light;
   border: 1px solid pink;
+  background-color: #fcf0f1;
   width: 250px;
-  height: 30px;
+  height: 40px;
+  border-radius: 12px;
 }
 .category-dropdown {
   border-radius: 12px;
-  max-width: 175px;
-  height: 30px;
-
+  max-width: 200px;
+  height: 40px;
+  font-family: var(--font-family-primary);
+  background-color: #fcf0f1;
   border: 1px solid pink;
   text-align: center;
-  padding: 3px;
+
+  font-size: 15px;
 }
+
 #gobutton {
   border-radius: 12px;
   min-width: 100px;
-  background-color: #29314a;
-  height: 30px;
+  background-color: #e0edf8;
+  height: 40px;
   cursor: pointer;
-  color: white;
-  border: 1px solid #29314a;
+  color: #263049;
+  border: 1px solid pink;
   text-align: center;
-  padding: 5px;
+  padding: 8px;
+  font-family: var(--font-family-primary);
 }
 #gobutton:hover {
   background-color: white;
   color: #29314a;
 }
-#back-to-hotels-btn {
-  margin: 20px;
+.sidebar-button {
+  margin-left: 10%;
+  margin-top: 5px;
   z-index: 1000;
   border-radius: 12px;
   min-width: 80%;
   background-color: white;
   height: 30px;
   cursor: pointer;
+  color: #263049;
+  font-weight: bold;
   border: 1px solid pink;
   text-align: center;
   padding: 3px;
 }
-#back-to-hotels-btn:hover {
+.sidebar-button:hover {
   background-color: hotpink;
   color: white;
 }
@@ -195,7 +248,6 @@ gmp-place-autocomplete {
   align-items: center;
   top: var(--header-height); /* Position below header */
   background: var(--white);
-  position: fixe;
   color: var(--heading-color); /* Use variable */
   overflow-y: auto;
   height: 100%;
@@ -241,7 +293,7 @@ gmp-place-autocomplete {
   top: 10px;
   left: 10px;
   z-index: 998;
-  background-color: #d6e6f8f1; /* Default, overridden dynamically */
+  background-color: #c4dcf2e3; /* Default, overridden dynamically */
   color: #f8f8f8;
   border-radius: 6px;
   padding: 6px 10px;
@@ -252,10 +304,28 @@ gmp-place-autocomplete {
   box-shadow: var(--box-shadow-soft);
   transition: background-color 0.3s ease;
 }
+#reset-camera-button {
+  position: absolute;
+  bottom: -5px;
+  left: 45%;
+  z-index: 998;
+  background-color: #c4dcf2; /* Default, overridden dynamically */
+  color: #252f48;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: var(--base-font-size);
+  align-items: center;
+  gap: 6px;
+  height: 35px;
+  cursor: pointer;
+  box-shadow: var(--box-shadow-soft);
+  transition: background-color 0.3s ease;
+}
 
 .weather-info-box img {
   width: 20px;
-  height: 20px;
+
   vertical-align: middle;
   margin: 0;
 }
@@ -395,33 +465,58 @@ gmp-place-autocomplete {
   left: 30%;
   bottom: 40%;
   position: absolute;
+  animation-delay: 0s;
+  animation: float 3s ease-in-out infinite;
+}
+#rome-card img {
+  width: 200px;
+  height: 200px;
+}
+#ny-card img {
+  width: 180px;
+  height: 180px;
+}
+#swiss-card img {
+  width: 170px;
+  height: 170px;
+}
+#tokyo-card img {
+  width: 210px;
+  height: 210px;
 }
 #ny-card {
   left: 10%;
   bottom: 40%;
   position: absolute;
+  animation: float 2s ease-in-out infinite;
+  animation-delay: 0.3s;
 }
 #swiss-card {
   left: 50%;
   bottom: 40%;
   position: absolute;
+  animation: float 3s ease-in-out infinite;
+
+  animation-delay: 0.5s;
 }
 #tokyo-card {
   left: 70%;
   bottom: 40%;
   position: absolute;
+  animation: float 5s ease-in-out infinite;
+  animation-delay: 0.31s;
 }
 
 #logo {
   left: 40%;
   top: 5%;
   position: absolute;
-  width: 300px;
+  width: 250px;
 }
 #dropdown-logo {
   display: none;
   width: 5%;
-  margin: 0 10px 0 10px;
+  margin: 10px 10px 0 10px;
 }
 /* Link Wrapper for Card */
 #card-container button {
@@ -431,7 +526,7 @@ gmp-place-autocomplete {
   cursor: pointer;
 }
 #card-container button:hover {
-  animation: vertical-shaking 0.5s infinite;
+  animation-play-state: paused;
 }
 
 .card {
@@ -443,14 +538,10 @@ gmp-place-autocomplete {
 
 .circle-wrapper {
   position: relative;
-  width: 200px;
-  height: 200px;
-  margin: 0 auto;
+  display: inline-block;
 }
 
 .card-image {
-  width: 200px;
-  height: 200px;
   border-radius: 50%;
   object-fit: cover;
   display: block;
@@ -468,16 +559,13 @@ gmp-place-autocomplete {
 }
 
 .arc-top {
-  top: -45px;
+  top: -40px;
 }
 
 .arc-bottom {
-  bottom: -45px;
+  bottom: -40px;
 }
 
-#dropdown-container.no-transition {
-  transition: none !important;
-}
 @keyframes vertical-shaking {
   0% {
     transform: translateY(0);
@@ -496,16 +584,20 @@ gmp-place-autocomplete {
   }
 }
 #ai-route-loading {
-  background-color: #fff7fb;
-  border-left: 4px solid #ea35c6;
-  font-family: "Poppins", sans-serif;
+  text-align: center;
   font-weight: 500;
-  color: #444;
-  min-height: 100px;
+  color: #263049;
+  min-height: 90%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
 }
 
 .loading-step {
   opacity: 0;
+  width: 100%;
   transform: translateY(10px);
   animation: fadeInUp 0.5s forwards;
   margin-bottom: 8px;
@@ -516,4 +608,51 @@ gmp-place-autocomplete {
     opacity: 1;
     transform: translateY(0);
   }
+}
+@keyframes float {
+  0% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-20px);
+  }
+
+  100% {
+    transform: translateY(0);
+  }
+}
+
+.ai-stop-card {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 0px;
+  margin: 10px 0 10px 0;
+  text-align: center;
+}
+
+.ai-stop-card:hover {
+  background-color: #fcf2f2ff;
+  cursor: pointer;
+}
+.ai-stop-card p {
+  margin: 0 0 5px 0;
+}
+.ai-stop-card em {
+  color: #f58288;
+}
+.ai-stop-card h4 {
+  margin: 0;
+}
+#ai-route-summary {
+  padding: 10px;
+  text-align: center;
+}
+#ai-route-summary h3 {
+  margin-bottom: 0;
+}
+#route-summary-distance {
+  color: #f58288;
+  margin: 0;
 }

@@ -5,14 +5,24 @@ class HotelMapApp {
         this.nearbyMarkers = [];
         this.nearbyPlaces = [];
         this.activePolylines = new Map();
+        this.routePolylines = [];
         this.activeCenterMarkers = new Map();
         this.selectedPlace = null;
+        this.RouteMarkers = [];
+        this.hotelMarkers = [];
+        this.categoryMappings = {};
+        this.groundElevation = 0;
         this.apiKey = "AIzaSyCVNX6mCprAYiGp8RUaf9yc6H-00fLR1Ns"; // Replace with your key
         this.elevationKey = "AIzaSyCCThoiMgZnmvLy0Nc2AeITEkNjE6dSlps"
 
         this.library = {}; // will store all imported modules
 
         this.elements = {
+            loadingEl: document.getElementById("ai-route-loading"),
+            loadingContainer: document.getElementById("loading-steps-container"),
+            routeContainer: document.getElementById("ai-route-container"),
+            summaryEl: document.getElementById("ai-route-summary"),
+            stopsEl: document.getElementById("ai-route-stops"),
             placeList: document.querySelector("gmp-place-search"),
             placeDetails: document.querySelector("gmp-place-details"),
             placeDetailsRequest: document.querySelector("gmp-place-details-place-request"),
@@ -22,9 +32,12 @@ class HotelMapApp {
             sponsoredContainer: document.getElementById("sponsored-activities-container"),
             sponsoredTitle: document.getElementById("sponsored-hotel-name"),
             weatherBox: document.getElementById("weather-info"),
-            backButton: document.getElementById("back-to-hotels-btn"),
+            backToAllHotels: document.getElementById("back-to-all-hotels-button"),
+            backToHotel: document.getElementById("back-to-hotel-button"),
+            genRoute: document.getElementById("gen-route-button"),
             sidebar: document.getElementById("sidebar"),
             gobutton: document.getElementById("gobutton"),
+            resetcamerabutton: document.getElementById("reset-camera-button"),
             map: document.getElementById("map"),
             categoryDropdown1: document.getElementById("category-dropdown-1"),
             categoryDropdown2: document.getElementById("category-dropdown-2"),
@@ -73,17 +86,9 @@ class HotelMapApp {
             await this.initializeMap();
             await this.loadCategoryMapping();
             this.setupCategoryDropdowns();
-            this.elements.placeList.addEventListener('gmp-select', ({ place }) => {
-                this.moveToLocation(place.toJSON());
-            });
-            this.elements.backButton.addEventListener('click', () => {
-                this.clearAllRoutes();
-                this.showHotelList();
-                if (this.activeMarker) this.activeMarker.remove();
 
-            });
             this.map3D.addEventListener('click', () => {
-                this.clearAllRoutes();
+                //this.clearAllRoutes();
                 // this.setCamera(this.selectedPlace.location.lat, this.selectedPlace.location.lng, 10, 35, 1000);
 
             });
@@ -99,6 +104,7 @@ class HotelMapApp {
             if (!response.ok) throw new Error("Failed to load category mappings");
 
             this.categoryMappings = await response.json();
+            console.log(this.categoryMappings)
         } catch (error) {
             console.error("Error loading category mappings:", error);
             this.categoryMappings = {};
@@ -134,6 +140,7 @@ class HotelMapApp {
             categoryLabels.forEach(label => {
                 if (label !== exclude) {
                     const option = document.createElement("option");
+                    option.className = "category-option";
                     option.value = label;
                     option.textContent = label;
                     if (label === defaultLabel) {
@@ -186,63 +193,114 @@ class HotelMapApp {
 
         this.elements.gobutton.addEventListener('click', async () => {
             console.log("clicked")
-            const header = document.getElementById('main-header');
-            const dropdown = document.getElementById('dropdown-container');
-            document.getElementById('card-container').style.display = 'none';
-            document.getElementById('dropdown-logo').style.display = 'block';
-            document.getElementById('logo').style.display = 'none';
 
-
-            header.classList.remove('expanded');      // Shrink header
-            dropdown.classList.add('active');
             if (!this.selectedPlace) {
+
                 alert("Please select a destination first.");
                 return;
             }
-            this.gotoplace();
+            else {
+                this.gotoplace();
+            }
 
         });
     }
+    animateHeader() {
+        this.elements.map.style.display = 'block';
+        this.elements.placeList.style.display = 'block';
+        const header = document.getElementById('main-header');
+        const dropdown = document.getElementById('dropdown-container');
+
+        // Remove no-transition class to enable smooth animation
+        dropdown.classList.remove('no-transition');
+
+        // Stage 1: Everything slides up off-screen
+        header.classList.remove('expanded');  // This makes header slide up
+        dropdown.classList.add('slide-up');   // This makes dropdown slide up too
+
+        // Stage 2: After first animation completes, slide dropdown back down
+        setTimeout(() => {
+            // Hide fullscreen elements
+            document.getElementById('card-container').style.display = 'none';
+            document.getElementById('logo').style.display = 'none';
+
+            // Show header elements
+            document.getElementById('dropdown-logo').style.display = 'block';
+
+            // Bring header back to normal position
+            header.classList.add('slide-back');
+
+            // Slide dropdown back down to header position
+            dropdown.classList.remove('slide-up');
+            dropdown.classList.add('slide-back');
+
+        }, 2000);
+    }
     async gotoplace() {
+        this.animateHeader();
+        await this.resetBeforeNewPlace();
         const cat1 = this.elements.categoryDropdown1.value;
         const cat2 = this.elements.categoryDropdown2.value;
-        const selectedLabels = [cat1, cat2].filter(Boolean);
 
-        const types1 = this.categoryMappings[cat1]?.types ?? [];
-        const types2 = this.categoryMappings[cat2]?.types ?? [];
-        const combinedTypes = [...new Set([...types1, ...types2])];
+        // Store selected category data
+        this.selectedCategories = {
+            category1: this.getCategoryByDisplayName(cat1),
+            category2: this.getCategoryByDisplayName(cat2)
+        };
 
-        const labels = selectedLabels.map(l => this.categoryMappings[l]?.short);
+        // Extract what you need for the API call
+        const combinedTypes = [
+            ...(this.selectedCategories.category1?.types || []),
+            ...(this.selectedCategories.category2?.types || [])
+        ];
+
+        const labels = [
+            this.selectedCategories.category1?.short,
+            this.selectedCategories.category2?.short
+        ].filter(Boolean); // Remove any null/undefined values
+        console.log(labels)
+        console.log(combinedTypes)
         try {
             this.elements.sponsoredPopup.style.display = 'none';
-            await this.getNearbyHotels(this.selectedPlace.location, labels, combinedTypes);
+            await this.getNearbyHotels(this.selectedPlace, labels, combinedTypes);
         } catch (error) {
             console.error("Error in Go handler:", error);
         }
     }
-    async gotopresetplace(name, cat1, cat2, location) {
-        const header = document.getElementById('main-header');
-        const dropdown = document.getElementById('dropdown-container');
-        document.getElementById('dropdown-logo').style.display = 'block';
-        document.getElementById('logo').style.display = 'none';
-        document.getElementById('card-container').style.display = 'none';
+    getCategoryByDisplayName(displayName) {
+        if (!displayName) return null;
 
-        header.classList.remove('expanded');
-        dropdown.classList.add('active');
+        const categoryKey = Object.keys(this.categoryMappings).find(key =>
+            this.categoryMappings[key].DisplayName === displayName
+        );
+        return categoryKey ? this.categoryMappings[categoryKey] : null;
+    }
+    async gotopresetplace(cat1, cat2, location) {
+        this.elements.map.style.display = 'block';
+        this.animateHeader();
+        // Store selected category data
+        this.selectedCategories = {
+            category1: this.getCategoryByDisplayName(cat1),
+            category2: this.getCategoryByDisplayName(cat2)
+        };
 
-        this.selectedPlace = { location };
+        // Extract what you need for the API call
+        const combinedTypespres = [
+            ...(this.selectedCategories.category1?.types || []),
+            ...(this.selectedCategories.category2?.types || [])
+        ];
 
-        const selectedLabels = [cat1, cat2].filter(Boolean);
-        const types1 = this.categoryMappings[cat1]?.types ?? [];
-        const types2 = this.categoryMappings[cat2]?.types ?? [];
-        const combinedTypes = [...new Set([...types1, ...types2])];
-        const labels = selectedLabels.map(l => this.categoryMappings[l]?.short);
-
-        this.resetBeforeNewPlace(); // cleanup
-
+        const labelspres = [
+            this.selectedCategories.category1?.short,
+            this.selectedCategories.category2?.short
+        ].filter(Boolean); // Remove any null/undefined values
+        this.selectedPlace = location;
+        console.log(this.selectedPlace)
+        console.log(labelspres)
+        console.log(combinedTypespres)
         try {
-            await this.getNearbyHotels(location, labels, combinedTypes);
-            window.scrollTo(0, document.body.scrollHeight);
+            this.elements.sponsoredPopup.style.display = 'none';
+            await this.getNearbyHotels(this.selectedPlace, labelspres, combinedTypespres);
         } catch (error) {
             console.error("Error in Go handler:", error);
         }
@@ -257,14 +315,11 @@ class HotelMapApp {
                 const lat = location.lat;
                 const lng = location.lng;
 
-                const groundElevation = await this.getElevation(lat, lng);
-                const altitude = groundElevation + (Math.floor(Math.random() * 5) * 20) + 10;
-
                 const marker = new Marker3DInteractiveElement({
                     position: { lat, lng },
                     altitudeMode: "RELATIVE_TO_MESH",
                     extruded: true,
-                    collisionBehavior: google.maps.CollisionBehavior.REQUIRED
+                    collisionBehavior: google.maps.CollisionBehavior.REQUIRED_AND_HIDES_OPTIONAL
                 });
 
                 const pin = new PinElement({ scale: 1 });
@@ -274,7 +329,7 @@ class HotelMapApp {
 
                 marker.append(pin);
                 this.map3D.append(marker);
-                this.nearbyMarkers.push(marker);
+                this.hotelMarkers.push(marker);
             });
         }
     }
@@ -313,6 +368,8 @@ class HotelMapApp {
                 }
             },
             travelMode: "WALK",
+            languageCode: "en",
+            units: "METRIC"
         };
 
         try {
@@ -339,18 +396,22 @@ class HotelMapApp {
         }
     }
     async moveToLocation(hotel, types) {
+        if (this.hotelMarkers) this.hotelMarkers.forEach(marker => marker.remove());
         this.elements.sponsoredPopup.style.display = 'none';
         this.selectedPlace = hotel;
         if (this.activeMarker) this.activeMarker.remove();
         this.activeMarker = await this.addFloatingHotelMarker(hotel);
-        const groundElevation = await this.getElevation(hotel.location.lat, hotel.location.lng);
+        this.groundElevation = await this.getElevation(hotel.location.lat, hotel.location.lng);
 
         this.activeMarker.addEventListener('gmp-click', async () => {
-            await this.setCamera(hotel.location.lat, hotel.location.lng, 10, 35, groundElevation + 300);
+            //when hotelmarker gets double clicked
+            await this.setCamera(hotel.location.lat, hotel.location.lng, this.groundElevation + 10, 35, 250, true);
+            this.elements.resetcamerabutton.style.display = 'block';
         });
-        console.log(groundElevation)
+        console.log(this.groundElevation)
         try {
-            await this.setCamera(hotel.location.lat, hotel.location.lng, 10, 45, groundElevation + 3000);
+            //when hotel gets clicked
+            await this.setCamera(hotel.location.lat, hotel.location.lng, this.groundElevation + 10, 45, 2000, false);
             this.searchNearbyFeatures(hotel.location, types);
             this.displayHotelDetails(hotel.id);
         } catch (error) {
@@ -361,7 +422,6 @@ class HotelMapApp {
     async addFloatingHotelMarker(hotel) {
         const { Marker3DInteractiveElement, PinElement } = this.library;
 
-        const groundElevation = await this.getElevation(hotel.location.lat, hotel.location.lng);
         const pin = new PinElement({ scale: 1.4 });
         const marker = new Marker3DInteractiveElement({
             position: {
@@ -378,7 +438,7 @@ class HotelMapApp {
         return marker;
     }
 
-    async setCamera(lat, lng, alt, tilt, range) {
+    async setCamera(lat, lng, alt, tilt, range, rotatecamera) {
         const flyOptions = {
             endCamera: {
                 center: { lat, lng, altitude: alt },
@@ -388,14 +448,16 @@ class HotelMapApp {
             },
             durationMillis: 3000
         };
-
         const onAnimationEnd = () => {
-            this.map3D.flyCameraAround({
-                camera: { center: { lat, lng, altitude: alt }, tilt, range, heading: 0 },
-                durationMillis: 50000,
-                rounds: 1
-            });
-        };
+            if (rotatecamera) {
+
+                this.map3D.flyCameraAround({
+                    camera: { center: { lat, lng, altitude: alt }, tilt, range, heading: 0 },
+                    durationMillis: 50000,
+                    rounds: 1
+                });
+            };
+        }
 
         // Prevent duplicate animation listeners
         this.map3D.removeEventListener('gmp-animationend', onAnimationEnd);
@@ -403,8 +465,11 @@ class HotelMapApp {
 
         this.map3D.flyCameraTo(flyOptions);
     }
+
+
     searchNearbyFeatures(location, types) {
         this.nearbyPlaces = [];
+        console.log(types)
         this.nearbyMarkers.forEach(marker => marker.remove());
         this.nearbyMarkers = [];
         const requestBody = {
@@ -512,8 +577,8 @@ class HotelMapApp {
         // Helper function to create route polyline
         const createRoutePolyline = () => {
             return new Polyline3DElement({
-                strokeColor: "#ea35c6",
-                strokeWidth: 10,
+                strokeColor: "#f7e76fff",
+                strokeWidth: 7,
                 altitudeMode: "RELATIVE_TO_MESH",
                 extruded: true,
                 drawsOccludedSegments: true,
@@ -522,18 +587,11 @@ class HotelMapApp {
 
         // Process all places
         const markerPromises = places.map(async (feature, index) => {
-            this.nearbyPlaces.push({ name: feature.displayName?.text, type: feature.primaryTypeDisplayName?.text, location: feature.location });
+            this.nearbyPlaces.push({ name: feature.displayName?.text, type: feature.primaryTypeDisplayName?.text, location: feature.location, placeId: feature.id });
 
             const placeId = feature.id;
-            const markerId = `marker_${index}`;
 
             try {
-                // Get elevation for this marker
-                const groundElevation = await this.getElevation(
-                    feature.location.latitude,
-                    feature.location.longitude
-                );
-                const altitude = groundElevation + (Math.floor(Math.random() * 5) * 20) + 10;
 
                 // Create the marker
                 const marker = new Marker3DInteractiveElement({
@@ -561,7 +619,7 @@ class HotelMapApp {
                     // Deselect previously active marker
                     if (this.activeMarker && this.activeMarker !== marker) {
                         this.activeMarker.label = this.activeMarker.originalLabel;
-                        this.removeSpecificRoute(this.activeMarker.id);
+                        // this.removeSpecificRoute(this.activeMarker.id);
                     }
                     // this.setCamera(location.latitude, location.longitude, 10, 50, 4000);
                     const isSameMarker = this.activeMarker === marker;
@@ -571,7 +629,9 @@ class HotelMapApp {
                         marker.label = this.activeMarker.originalLabel;
                         this.removeSpecificRoute(marker.id);
                         this.activeMarker = null;
-                        this.setCamera(feature.location.latitude, feature.location.longitude, 10, 35, altitude + 400);
+                        //When nearby feature gets double clicked
+                        this.elements.resetcamerabutton.style.display = 'block';
+                        this.setCamera(feature.location.latitude, feature.location.longitude, this.groundElevation + 100, 35, 250, true);
                     } else {
                         // Set this marker as active
                         marker.label = `⭐${feature.displayName.text}`;
@@ -586,12 +646,8 @@ class HotelMapApp {
                                 const path = google.maps.geometry.encoding.decodePath(route.routes[0].polyline.encodedPolyline);
                                 polyline.coordinates = path;
 
-                                const placeDetailsEl = createPlaceDetailsElement(placeId);
-                                this.elements.sponsoredContainer.append(placeDetailsEl);
-                                this.elements.sponsoredContainer.append(
-                                    `🚶‍♂️${route.routes[0].localizedValues.duration.text} - ${route.routes[0].localizedValues.distance.text}`
-                                );
-                                this.elements.sponsoredPopup.style.display = 'block';
+                                this.fillSponsoredContainer(placeId, route, this.elements.sponsoredContainer, this.elements.sponsoredPopup);
+
 
                                 this.activePolylines.set(marker.id, polyline);
                                 this.map3D.append(polyline);
@@ -619,6 +675,53 @@ class HotelMapApp {
         const markers = await Promise.all(markerPromises);
         console.log(`Created ${markers.filter(m => m !== null).length} markers successfully`);
     }
+    fillSponsoredContainer(placeId, route, sponsoredContainer, sponsoredPopup) {
+        // Create place details element
+        const placeDetailsEl = document.createElement("gmp-place-details-compact");
+        placeDetailsEl.setAttribute("orientation", "horizontal");
+        placeDetailsEl.setAttribute("truncation-preferred", "");
+
+        const placeRequestEl = document.createElement("gmp-place-details-place-request");
+        placeRequestEl.setAttribute("place", placeId);
+        placeDetailsEl.appendChild(placeRequestEl);
+
+        const contentConfig = document.createElement("gmp-place-content-config");
+
+        const configElements = [
+            ["gmp-place-media", { "lightbox-preferred": "" }],
+            ["gmp-place-rating"],
+            ["gmp-place-type"],
+            ["gmp-place-price"],
+            ["gmp-place-accessible-entrance-icon"],
+            ["gmp-place-open-now-status"],
+            ["gmp-place-attribution"]
+        ];
+
+        configElements.forEach(([tag, attrs = {}]) => {
+            const el = document.createElement(tag);
+            Object.entries(attrs).forEach(([key, value]) => el.setAttribute(key, value));
+            contentConfig.appendChild(el);
+        });
+
+        placeDetailsEl.appendChild(contentConfig);
+        placeDetailsEl.style.width = "350px";
+        placeDetailsEl.style.height = "120px";
+        placeDetailsEl.style.colorScheme = "light";
+
+        placeDetailsEl.addEventListener("gmp-load", () => {
+            placeDetailsEl.style.visibility = "visible";
+            console.log(`Place details widget loaded for ${placeId}`);
+        });
+
+        sponsoredContainer.innerHTML = ""; // Clear container
+        sponsoredContainer.append(placeDetailsEl);
+        if (route) {
+            sponsoredContainer.append(
+                `🚶‍♂️${route.routes[0].localizedValues.duration.text} - ${route.routes[0].localizedValues.distance.text}`
+            );
+        }
+        sponsoredPopup.style.display = 'block';
+    }
     async getElevation(lat, lng) {
         const url = `https://maps.googleapis.com/maps/api/elevation/json?locations=${lat}%2C${lng}&key=${this.elevationKey}`;
         try {
@@ -637,31 +740,35 @@ class HotelMapApp {
     }
 
     async getNearbyHotels(location, labels, types) {
-
-        const bounds = this.createBoundsFromCenterAndRadius({ lat: location.lat, lng: location.lng }, 5000);
+        console.log(location)
+        //const bounds = this.createBoundsFromCenterAndRadius({ lat: location.lat, lng: location.lng }, 5000);
 
         try {
             this.nearbyMarkers.forEach(marker => marker.remove());
             this.nearbyMarkers = [];
-            this.elements.backButton.style.display = 'none';
+            this.elements.backToAllHotels.style.display = 'none';
             this.elements.placeDetails.style.display = 'none';
 
             const placeList = this.elements.placeList;
             const placeSearchQuery = document.querySelector("gmp-place-text-search-request");
 
-            placeSearchQuery.textQuery = `Hotel near ${labels[0]} and ${labels[1]}`;
-            placeSearchQuery.locationBias = bounds;
-
+            placeSearchQuery.textQuery = `hotel near ${labels[0]} and ${labels[1]} in ${location.formattedAddress}`;
+            //     placeSearchQuery.locationBias = bounds;
+            // console.log(bounds)
             // Wait for results to load before continuing
+            console.log(types)
             const onLoad = () => {
                 this.addMarkers(types);
+                this.elements.placeList.addEventListener('gmp-select', ({ place }) => {
+                    this.moveToLocation(place.toJSON(), types);
+                });
                 placeList.removeEventListener('gmp-load', onLoad); // Remove after fire
             };
             placeList.addEventListener('gmp-load', onLoad);
 
 
-            await this.showWeatherInfo(location);
-            await this.setCamera(location.lat, location.lng, 10, 35, 80000);
+            await this.showWeatherInfo(location.location);
+            await this.setCamera(location.location.lat, location.location.lng, 10, 35, 8000, false);
         } catch (error) {
             console.error("Error getting nearby hotels:", error);
         }
@@ -701,10 +808,11 @@ class HotelMapApp {
     }
 
     displayHotelDetails(placeId) {
+        this.elements.genRoute.style.display = 'block';
         this.elements.placeList.style.display = 'none';
         this.elements.placeDetails.style.display = 'block';
         this.elements.placeDetailsRequest.place = placeId;
-        this.elements.backButton.style.display = 'block';
+        this.elements.backToAllHotels.style.display = 'block';
     }
 
 
@@ -716,7 +824,7 @@ class HotelMapApp {
 
         this.elements.placeDetails.style.display = 'none';
         this.elements.placeList.style.display = 'block';
-        this.elements.backButton.style.display = 'none';
+        this.elements.backToAllHotels.style.display = 'none';
 
         if (this.activeMarker) {
             this.activeMarker.remove();
@@ -724,7 +832,7 @@ class HotelMapApp {
         }
 
         this.addMarkers();
-        this.setCamera(this.selectedPlace.location.lat, this.selectedPlace.location.lng, 10, 45, 8000);
+        this.setCamera(this.selectedPlace.location.lat, this.selectedPlace.location.lng, 10, 45, 8000, false);
     }
 
     async getWeatherInfo(location) {
@@ -739,29 +847,32 @@ class HotelMapApp {
     }
 
     async AIWalkingRoute() {
+        this.elements.backToHotel.style.display = 'none';
+        this.elements.gobutton.disabled = true;
+        this.clearAllRoutes();
+        console.log(this.nearbyPlaces)
         const requestBody = {
             "contents": [
                 {
                     "parts": [
                         {
-                            "text": `Based on the following list of places and their types, could you generate a JSON object for each stop and describe the stop? You don't need to use all stops, just the ones that are the most interesting based on the ${this.elements.categoryDropdown1.value} and ${this.elements.categoryDropdown2.value} as interests. also return in JSON a short summary title and description of the whole route. The list of location is the following: ${JSON.stringify(this.nearbyPlaces)}. The resulting JSON object should look like: {route_description: string, route_title:string, stops[{name:string,type:string, location: {lat:number,lng:number}, description:string}]}]}`
+                            "text": `Based on the following list of places and their types, could you generate a JSON object for each stop and describe the stop? You don't need to use all stops, just the ones that are the most interesting based on the ${this.elements.categoryDropdown1.value} and ${this.elements.categoryDropdown2.value} as interests. also return in JSON a short summary title and description of the whole route. The list of location is the following: ${JSON.stringify(this.nearbyPlaces)}. The resulting JSON object should look like: {route_description: string, route_title:string, stops[{name:string,type:string,placeId: string, location: {lat:number,lng:number}, description:string}]}]}`
                         }
                     ]
                 }
             ]
         }
 
-        const loadingEl = document.getElementById("ai-route-loading");
-        const loadingContainer = document.getElementById("loading-steps-container");
-        const routeContainer = document.getElementById("ai-route-container");
 
         // Reset
-        loadingContainer.innerHTML = "";
-        loadingEl.style.display = 'block';
-        routeContainer.style.display = 'none';
+        this.elements.loadingContainer.innerHTML = "";
+        this.elements.loadingEl.style.display = 'block';
+        this.elements.routeContainer.style.display = 'none';
         this.elements.placeList.style.display = 'none';
         this.elements.placeDetails.style.display = 'none';
-        this.elements.backButton.style.display = 'none';
+        this.elements.backToAllHotels.style.display = 'none';
+        this.elements.sponsoredPopup.style.display = 'none';
+
 
         const loadingSteps = [
             "🔍 Looking for the best places...",
@@ -775,22 +886,23 @@ class HotelMapApp {
             if (stepIndex < loadingSteps.length) {
                 const stepEl = document.createElement("p");
                 stepEl.className = "loading-step";
+
                 stepEl.textContent = loadingSteps[stepIndex];
-                loadingContainer.appendChild(stepEl);
+                this.elements.loadingContainer.appendChild(stepEl);
                 stepIndex++;
             } else {
                 clearInterval(stepInterval);
             }
-        }, 3000);
-        const summaryEl = document.getElementById("ai-route-summary");
-        const stopsEl = document.getElementById("ai-route-stops");
+        }, 4000);
+
 
         // Hide hotel UI
         this.elements.placeList.style.display = 'none';
         this.elements.placeDetails.style.display = 'none';
-        this.elements.backButton.style.display = 'none';
-        routeContainer.style.display = 'none';
-        loadingEl.style.display = 'block';
+        this.elements.backToAllHotels.style.display = 'none';
+        this.elements.routeContainer.style.display = 'none';
+        this.elements.loadingEl.style.display = 'block';
+        this.elements.genRoute.style.display = 'none';
 
         try {
             const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent", {
@@ -815,44 +927,22 @@ class HotelMapApp {
             // Call route drawing
             await this.calculateAIRoute(jsonData);
 
-            // Fill UI
-            loadingEl.style.display = 'none';
-            routeContainer.style.display = 'block';
-
-            summaryEl.innerHTML = `
-            <h3>${jsonData.route_title}</h3>
-            <p>${jsonData.route_description}</p>
-        `;
-
-            stopsEl.innerHTML = '';
-            jsonData.stops.forEach(stop => {
-                const div = document.createElement('div');
-                div.classList.add('ai-stop-card');
-                div.innerHTML = `
-                <h4>${stop.name}</h4>
-                <p><em>${stop.type}</em></p>
-                <p>${stop.description}</p>
-                <hr />
-            `;
-                stopsEl.appendChild(div);
-            });
 
         } catch (error) {
             console.error("Error fetching AI descriptions:", error);
-            loadingEl.innerHTML = "<p>Failed to generate route. Please try again.</p>";
+            this.elements.loadingEl.innerHTML = "<p>Failed to generate route. Please try again.</p>";
         }
     }
-    async calculateAIRoute(data) {
-        this.clearAllRoutes();
+    async calculateAIRoute(AIdata) {
         const [
             { Polyline3DElement }
         ] = await Promise.all([
             google.maps.importLibrary("maps3d")
         ]);
 
-        console.log(data)
+
         const stops = [];
-        data.stops.forEach(place => {
+        AIdata.stops.forEach(place => {
             stops.push(
                 {
                     location: {
@@ -884,6 +974,8 @@ class HotelMapApp {
             intermediates: stops,
             optimizeWaypointOrder: true,
             travelMode: "WALK",
+            languageCode: "en",
+            units: "METRIC"
         };
 
         try {
@@ -892,7 +984,7 @@ class HotelMapApp {
                 body: JSON.stringify(requestBody),
                 headers: {
                     "Content-Type": "application/json",
-                    "X-Goog-FieldMask": "routes.polyline,routes.localizedValues,routes.optimized_intermediate_waypoint_index",
+                    "X-Goog-FieldMask": "routes.polyline,routes.localizedValues,routes.optimized_intermediate_waypoint_index,routes.viewport",
                     "X-Goog-Api-Key": this.apiKey
                 }
             });
@@ -902,23 +994,63 @@ class HotelMapApp {
             }
 
             const data = await response.json();
-            console.log(data)
             const createRoutePolyline = () => {
                 return new Polyline3DElement({
-                    strokeColor: "#ea35c6",
-                    strokeWidth: 10,
-                    altitudeMode: "RELATIVE_TO_MESH",
-                    extruded: true,
+                    strokeColor: "#f7e76fff",
+                    strokeWidth: 7,
+                    altitudeMode: "RELATIVE_TO_GROUND",
                     drawsOccludedSegments: true,
                 });
             };
             try {
                 const route = data
                 if (route?.routes?.[0]) {
+                    if (this.nearbyMarkers) this.nearbyMarkers.forEach(marker => marker.remove());
+                    console.log(this.nearbyMarkers)
+                    const optimizedIndexes = data.routes[0].optimizedIntermediateWaypointIndex;
+                    const reorderedStops = optimizedIndexes.map(i => AIdata.stops[i]);
+                    this.createRouteMarkers(reorderedStops)
+                    if (route?.routes?.[0].viewport) {
+                        const centerLat = (route?.routes?.[0].viewport.high.latitude + route?.routes?.[0].viewport.low.latitude) / 2;
+                        const centerLng = (route?.routes?.[0].viewport.high.longitude + route?.routes?.[0].viewport.low.longitude) / 2;
+
+                        const center = { lat: centerLat, lng: centerLng };
+                        console.log(center);
+                        this.setCamera(center.lat, center.lng, 10, 0, 6000)
+                    }
+                    else {
+                        this.setCamera(this.selectedPlace.location.lat, this.selectedPlace.location.lng, 10, 0, 6000)
+
+                    }
                     const polyline = createRoutePolyline();
+                    this.routePolylines.push(polyline)
                     const path = google.maps.geometry.encoding.decodePath(route.routes[0].polyline.encodedPolyline);
                     polyline.coordinates = path;
                     this.map3D.append(polyline);
+                    this.elements.loadingEl.style.display = 'none';
+                    this.elements.routeContainer.style.display = 'block';
+
+                    this.elements.summaryEl.innerHTML = `
+                        <h3>${AIdata.route_title}</h3>
+                        <p id="route-summary-distance"><em>${route.routes[0].localizedValues.distance?.text} - ${route.routes[0].localizedValues.duration?.text}</em></p>
+                        <p>${AIdata.route_description}</p>
+                    `;
+
+                    this.elements.stopsEl.innerHTML = '';
+                    reorderedStops.forEach((stop, i) => {
+                        const div = document.createElement('div');
+                        div.classList.add('ai-stop-card');
+                        div.id = `ai-stop-card-${i}`;
+                        div.innerHTML = `
+                            <h4>${i + 1}. ${stop.name}</h4>
+                            <p><em>${stop.type}</em></p>
+                            <p>${stop.description}</p>
+                            <hr />
+                        `;
+                        this.elements.stopsEl.appendChild(div);
+                    });
+                    this.elements.backToHotel.style.display = "block";
+                    this.elements.gobutton.disabled = false;
                 }
             } catch (error) {
                 console.error("Error calculating route:", error);
@@ -929,39 +1061,130 @@ class HotelMapApp {
             return null;
         }
     }
-    resetBeforeNewPlace() {
-        this.clearAllRoutes();
 
-        // Remove all nearby markers from the map
-        this.nearbyMarkers.forEach(marker => {
-            if (marker.parentElement) {
-                marker.remove();
-            }
+    createRouteMarkers(data) {
+        const { Marker3DInteractiveElement, PinElement } = this.library;
+
+        // Store route stops for resetting labels later
+        this.RouteStops = data;
+
+        if (data.length > 0) {
+            data.forEach((stop, i) => {
+                const { lat, lng } = stop.location;
+
+                const marker = new Marker3DInteractiveElement({
+                    position: { lat, lng },
+                    altitudeMode: "RELATIVE_TO_MESH",
+                    extruded: true,
+                    label: `${i + 1}. ${stop.name}`,
+                    collisionBehavior: google.maps.CollisionBehavior.REQUIRED_AND_HIDES_OPTIONAL
+                });
+
+                const pin = new PinElement({ scale: 0 });
+                this.RouteMarkers.push(marker);
+
+                // Attach click handler to marker
+                marker.addEventListener("gmp-click", async () => {
+                    this.highlightStop(i, stop);
+                    this.fillSponsoredContainer(
+                        stop.placeId,
+                        null,
+                        this.elements.sponsoredContainer,
+                        this.elements.sponsoredPopup
+                    );
+                });
+
+                // Wait for DOM to be ready, then attach click to card
+                setTimeout(() => {
+                    const card = document.getElementById(`ai-stop-card-${i}`);
+                    if (card) {
+                        card.addEventListener('click', () => {
+                            this.highlightStop(i, stop);
+                        });
+                    }
+                }, 0);
+
+                marker.append(pin);
+                this.map3D.append(marker);
+            });
+        }
+    }
+    highlightStop(index, stop) {
+        // Reset all card backgrounds
+        document.querySelectorAll(".ai-stop-card").forEach(cardEl => {
+            cardEl.style.background = "transparent";
         });
-        this.nearbyMarkers = [];
 
-        // Remove the active floating hotel marker
-        if (this.activeMarker && this.activeMarker.parentElement) {
-            this.activeMarker.remove();
-            this.activeMarker = null;
+        // Reset all marker labels
+        this.RouteMarkers.forEach((m, i) => {
+            m.label = `${i + 1}. ${this.RouteStops[i].name}`;
+        });
+
+        // Highlight the selected card
+        const card = document.getElementById(`ai-stop-card-${index}`);
+        if (card) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            card.style.background = "#fcf2f2ff";
         }
 
-        // Also clear any center markers if needed
-        this.activeCenterMarkers.forEach(marker => {
-            if (marker.parentElement) {
-                marker.remove();
-            }
-        });
-        this.activeCenterMarkers.clear();
+        // Highlight the selected marker
+        this.RouteMarkers[index].label = `⭐ ${index + 1}. ${stop.name}`;
+    }
+    async resetBeforeNewPlace() {
 
+        if (this.nearbyMarkers) this.nearbyMarkers.forEach(marker => marker.remove())
+        if (this.RouteMarkers) this.RouteMarkers.forEach(marker => marker.remove())
+        if (this.routePolylines) this.routePolylines.forEach(marker => marker.remove())
+        if (this.hotelMarkers) this.hotelMarkers.forEach(marker => marker.remove());
+        if (this.activeMarker) this.activeMarker.remove();
+
+        console.log(this.hotelMarkers)
+        this.hotelMarkers = [];
+        this.RouteMarkers = [];
+        this.routePolylines = [];
+        this.nearbyMarkers = [];
+        //this.hotelMarkers.forEach(marker => this.map3D.removeChild(marker))
+        this.elements.routeContainer.style.display = "none";
+        //  this.hotelMarkers.forEach(marker => this.map3D.removeChild(marker));
         this.elements.placeDetails.style.display = 'none';
-        this.elements.backButton.style.display = 'none';
-
-        this.elements.weatherBox.style.display = 'none';
-        this.elements.weatherBox.innerHTML = '';
-
+        this.elements.backToAllHotels.style.display = 'none';
         this.elements.sponsoredContainer.innerHTML = '';
         this.elements.sponsoredPopup.style.display = 'none';
+        this.elements.backToHotel.style.display = 'none';
+        this.elements.genRoute.style.display = 'none';
+        //this.clearAllRoutes();
+    }
+    backToHotel() {
+        this.nearbyMarkers.forEach(marker => this.map3D.append(marker));
+        if (this.RouteMarkers) this.RouteMarkers.forEach(marker => marker.remove());
+        this.elements.placeDetails.style.display = 'block';
+        if (this.routePolylines) this.routePolylines.forEach(polyline => polyline.remove());
+        this.elements.routeContainer.style.display = 'none';
+        this.elements.backToAllHotels.style.display = 'block';
+        this.elements.backToHotel.style.display = 'none';
+        this.elements.genRoute.style.display = 'block';
+    }
+    backToAllHotels() {
+        console.log(this.hotelMarkers)
+        console.log(this.nearbyMarkers)
+        if (this.activeMarker) this.activeMarker.remove();
+        if (this.nearbyMarkers) this.nearbyMarkers.forEach(marker => marker.remove());
+        this.elements.placeDetails.style.display = 'none';
+        this.elements.routeContainer.style.display = "none";
+        this.elements.genRoute.style.display = 'none';
+        this.elements.placeList.style.display = 'block';
+        this.hotelMarkers.forEach(marker => this.map3D.append(marker));
+        this.clearAllRoutes();
+        this.showHotelList();
+        if (this.activeMarker) this.activeMarker.remove();
+
+
+    }
+    async resetCamera() {
+        this.elements.resetcamerabutton.style.display = 'none';
+
+        await this.setCamera(this.selectedPlace.location.lat, this.selectedPlace.location.lng, 10, 35, 5000, false);
+
     }
 }
 
