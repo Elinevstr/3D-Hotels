@@ -11,9 +11,10 @@
   <body>
     <div class="expanded" id="main-header">
       <div class="fullscreen-inner">
-      <img src="imgs/roamly-logo.png" id="logo" alt="logo"loading="lazy"/>
+        <div id="banner">
+      <img src="imgs/roamly-logo.png" id="logo" alt="logo"loading="lazy"/></div>
       <div id="card-container">
-            <button onclick="hotelMapApp.gotopresetplace('🍴 Food & Drink', '🏛️ Culture & History', {formattedAddress: 'Rome, Italy', location: { lat: 41.899858512899556, lng: 12.480297389326685}})" id="rome-card"> 
+            <button onclick="hotelMapApp.gotopresetplace('Food & Drink', 'Culture & History', {formattedAddress: 'Rome, Italy', location: { lat: 41.899858512899556, lng: 12.480297389326685}})" id="rome-card"> 
                 <div class="card">
                    <div class="circle-wrapper">
                       <img src="imgs/rome.jpg" alt="Travel App Demo" class="card-image" loading="lazy"/>
@@ -22,7 +23,7 @@
                     </div>
                 </div>
               </button>
-            <button onclick="hotelMapApp.gotopresetplace('🛍️ Shopping', '🍴 Food & Drink', {formattedAddress: 'New York City, USA', location: { lat: 40.730545330157916, lng: -73.99633893659198}})" id="ny-card"> 
+            <button onclick="hotelMapApp.gotopresetplace('Shopping', 'Food & Drink', {formattedAddress: 'New York City, USA', location: { lat: 40.730545330157916, lng: -73.99633893659198}})" id="ny-card"> 
                 <div class="card">
                   <div class="circle-wrapper">
 
@@ -34,25 +35,35 @@
                 </div>
               </button>
                
-                 <button onclick="hotelMapApp.gotopresetplace('🧘 Relaxation & Wellness', '🌳 Nature & Outdoors', {formattedAddress: 'Zermatt, Switzerland', location: { lat: 46.022801356552414, lng: 7.7520209377576075} })" id="swiss-card"> 
+                 <button onclick="hotelMapApp.gotopresetplace('Relaxation & Wellness', 'Nature & Outdoors', {formattedAddress: 'Zermatt, Switzerland', location: { lat: 46.022801356552414, lng: 7.7520209377576075} })" id="swiss-card"> 
                 <div class="card">
                   <div class="circle-wrapper">
 
                   <img src="imgs/zermatt.jpg" alt="Travel App Demo" class="card-image" loading="lazy"/>
               
                     <p class="arc-text arc-top"> Nature and Wellness</p>
-                    <p class="arc-text arc-bottom">in the Swiss mountains!</p>
+                    <p class="arc-text arc-bottom">in the Swiss mountains</p>
                   </div>
                 </div>
               </button>
-            <button onclick="hotelMapApp.gotopresetplace('🛍️ Shopping', '🍿 Entertainment & Nightlife', {formattedAddress: 'Tokyo, Japan', location: {lat: 35.681762113399564, lng: 139.7559647472117}})" id="tokyo-card"> 
+            <button onclick="hotelMapApp.gotopresetplace('Shopping', 'Entertainment & Nightlife', {formattedAddress: 'Tokyo, Japan', location: {lat: 35.681762113399564, lng: 139.7559647472117}})" id="tokyo-card"> 
                 <div class="card">
                 <div class="circle-wrapper">
 
                 <img src="imgs/tokyo.jpg" alt="Travel App Demo" class="card-image" loading="lazy"/>
                 
                     <p class="arc-text arc-top">Shopping and Entertainment</p>
-                    <p class="arc-text arc-bottom">in Tokyo!</p>
+                    <p class="arc-text arc-bottom">in Tokyo</p>
+                  </div>  
+                </div>
+        </button>
+         <button onclick="hotelMapApp.gotorandomplace()" id="random-card"> 
+                <div class="card">
+                <div class="circle-wrapper">
+                <img src="imgs/randomlocation.png" alt="Travel App Demo" class="card-image" loading="lazy"/>
+                
+                    <p class="arc-text arc-top">Surprise</p>
+                    <p class="arc-text arc-bottom">location</p>
                   </div>  
                 </div>
         </button>
@@ -69,7 +80,7 @@
 
         <label for="category-dropdown-2"> and </label>
         <select id="category-dropdown-2" class="category-dropdown"></select>
-        <button id="gobutton">🔍 Search</button>
+        <button id="gobutton">Search</button>
       </div>
        </div>
       <!--  <div class="header-title">
@@ -102,13 +113,14 @@
       </div>
 
       <div class="sidebar">
+        <div id="button-container">
         <button
           id="back-to-all-hotels-button"
           class="sidebar-button"
           style="display: none"
           onclick="hotelMapApp.backToAllHotels()"
         >
-          ← Back to all Hotels
+          Back
         </button>
            <button
           id="back-to-hotel-button"
@@ -116,7 +128,7 @@
           style="display: none"
           onclick="hotelMapApp.backToHotel()"
         >
-          ← Back to Hotel
+          Back to Hotel
         </button>
         <button
           id="gen-route-button"
@@ -124,8 +136,9 @@
           style="display: none"
           onclick="hotelMapApp.AIWalkingRoute()"
         >
-          Generate a walking route
+          Generate walking route
         </button>
+        </div>
         <div id="ai-route-loading" style="display: none; padding: 20px; font-size: 16px;">
           <div id="loading-steps-container"></div>
         </div>
@@ -134,14 +147,18 @@
           <div id="ai-route-summary"></div>
           <div id="ai-route-stops"></div>
         </div>
+          <h3 id="location-title"></h3>
+          <p id="location-subtitle"></p>
+
         <div class="list-container">
+       
           <gmp-place-search orientation="vertical" selectable>
             <gmp-place-all-content> </gmp-place-all-content>
             <gmp-place-text-search-request></gmp-place-text-search-request>
           </gmp-place-search>
-        </div>
+    
 
-        <gmp-place-details style="display: none">
+        <gmp-place-details style="display: none" >
           <gmp-place-details-place-request></gmp-place-details-place-request>
           <gmp-place-content-config>
             <gmp-place-address></gmp-place-address>
@@ -162,7 +179,9 @@
             ></gmp-place-attribution>
           </gmp-place-content-config>
         </gmp-place-details>
+            </div>
       </div>
+
     </div>
 
     <script>
@@ -225,6 +244,9 @@
         break;
       case 'tokyo-card':
         radius = 130; // Half of 210px
+        break;
+      case 'random-card':
+        radius = 90; // Half of 210px
         break;
       default:
         radius = 200; // fallback

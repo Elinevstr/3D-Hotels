@@ -1,5 +1,67 @@
 class HotelMapApp {
     constructor() {
+        this.randomdest = [
+            {
+                location: { formattedAddress: 'Paris, France', location: { lat: 48.85734310966265, lng: 2.342754204908419 } },
+                category1: "Food & Drink",
+                category2: "Culture & History"
+            },
+            {
+                location: { formattedAddress: 'Barcelona, Spain', location: { lat: 41.40035375749143, lng: 2.170107786934043 } },
+                category1: "Culture & History",
+                category2: "Entertainment & Nightlife"
+            },
+            {
+                location: { formattedAddress: 'London, UK', location: { lat: 51.510272032816374, lng: - 0.11514937340195888 } },
+                category1: "Culture & History",
+                category2: "Shopping"
+            },
+            {
+                location: { formattedAddress: "Sydney, Australia", location: { lat: -33.88020201354722, lng: 151.20889667466582 } },
+                category1: "Nature & Outdoors",
+                category2: "Entertainment & Nightlife"
+            },
+            {
+                location: { formattedAddress: "Amsterdam, Netherlands", location: { lat: 52.36946530187627, lng: 4.895521167441979 } },
+                category1: "Culture & History",
+                category2: "Entertainment & Nightlife"
+            },
+            {
+                location: { formattedAddress: "Lisbon, Portugal", location: { lat: 38.72218051946241, lng: - 9.140177235039712 } },
+                category1: "Relaxation & Wellness",
+                category2: "Food & Drink"
+            },
+            {
+                location: { formattedAddress: "Vienna, Austria", location: { lat: 48.20803585558855, lng: 16.372114046058552 } },
+                category1: "Culture & History",
+                category2: "Relaxation & Wellness"
+            },
+            {
+                location: { formattedAddress: " Cape Town, South Africa", location: { lat: -33.9199108405239, lng: 18.413928450994916 } },
+                category1: "Nature & Outdoors",
+                category2: "Food & Drink"
+            },
+            {
+                location: { formattedAddress: "Buenos Aires, Argentina", location: { lat: - 34.613711363224844, lng: -58.41610868724004 } },
+                category1: "Entertainment & Nightlife",
+                category2: "Culture & History"
+            },
+            {
+                location: { formattedAddress: "San Francisco, USA", location: { lat: 37.77307043309438, lng: - 122.42130214095383 } },
+                category1: "Nature & Outdoors",
+                category2: "Culture & History"
+            },
+            {
+                location: { formattedAddress: "Prague, Czech Republic", location: { lat: 50.075382092737485, lng: 14.437380424838672 } },
+                category1: "Culture & History",
+                category2: "Relaxation & Wellness"
+            },
+            {
+                location: { formattedAddress: "Vancouver, Canada", location: { lat: 49.28059400984349, lng: -123.11639054155492 } },
+                category1: "Nature & Outdoors",
+                category2: "Food & Drink"
+            },
+        ]
         this.map3D = null;
         this.activeMarker = null;
         this.nearbyMarkers = [];
@@ -41,6 +103,8 @@ class HotelMapApp {
             map: document.getElementById("map"),
             categoryDropdown1: document.getElementById("category-dropdown-1"),
             categoryDropdown2: document.getElementById("category-dropdown-2"),
+            locationTitle: document.getElementById("location-title"),
+            locationsubTitle: document.getElementById("location-subtitle")
         };
 
         this.init();
@@ -237,6 +301,10 @@ class HotelMapApp {
         }, 2000);
     }
     async gotoplace() {
+        if (this.activeMarker) {
+            this.activeMarker.remove();
+            this.activeMarker = null;
+        }
         this.animateHeader();
         await this.resetBeforeNewPlace();
         const cat1 = this.elements.categoryDropdown1.value;
@@ -267,6 +335,7 @@ class HotelMapApp {
             console.error("Error in Go handler:", error);
         }
     }
+
     getCategoryByDisplayName(displayName) {
         if (!displayName) return null;
 
@@ -276,12 +345,13 @@ class HotelMapApp {
         return categoryKey ? this.categoryMappings[categoryKey] : null;
     }
     async gotopresetplace(cat1, cat2, location) {
+        console.log(this.categoryMappings)
         this.elements.map.style.display = 'block';
         this.animateHeader();
         // Store selected category data
         this.selectedCategories = {
-            category1: this.getCategoryByDisplayName(cat1),
-            category2: this.getCategoryByDisplayName(cat2)
+            category1: this.categoryMappings[cat1],
+            category2: this.categoryMappings[cat2]
         };
 
         // Extract what you need for the API call
@@ -322,7 +392,12 @@ class HotelMapApp {
                     collisionBehavior: google.maps.CollisionBehavior.REQUIRED_AND_HIDES_OPTIONAL
                 });
 
-                const pin = new PinElement({ scale: 1 });
+                const pin = new PinElement({
+                    scale: 1,
+                    background: '#8292E7',
+                    glyphColor: "#2E49D6",
+                    borderColor: "#2E49D6"
+                });
                 marker.addEventListener('gmp-click', () => {
                     this.moveToLocation(feature.toJSON(), types);
                 });
@@ -396,22 +471,24 @@ class HotelMapApp {
         }
     }
     async moveToLocation(hotel, types) {
+        this.elements.locationTitle.style.display = 'none';
+        this.elements.locationsubTitle.style.display = 'none';
         if (this.hotelMarkers) this.hotelMarkers.forEach(marker => marker.remove());
         this.elements.sponsoredPopup.style.display = 'none';
         this.selectedPlace = hotel;
-        if (this.activeMarker) this.activeMarker.remove();
+        if (this.activeMarker) { this.activeMarker.remove(); this.activeMarker = null; }
         this.activeMarker = await this.addFloatingHotelMarker(hotel);
         this.groundElevation = await this.getElevation(hotel.location.lat, hotel.location.lng);
 
         this.activeMarker.addEventListener('gmp-click', async () => {
             //when hotelmarker gets double clicked
-            await this.setCamera(hotel.location.lat, hotel.location.lng, this.groundElevation + 10, 35, 250, true);
+            await this.setCamera(hotel.location.lat, hotel.location.lng, this.groundElevation, 35, 150, true);
             this.elements.resetcamerabutton.style.display = 'block';
         });
         console.log(this.groundElevation)
         try {
             //when hotel gets clicked
-            await this.setCamera(hotel.location.lat, hotel.location.lng, this.groundElevation + 10, 45, 2000, false);
+            await this.setCamera(hotel.location.lat, hotel.location.lng, this.groundElevation, 45, 2000, false);
             this.searchNearbyFeatures(hotel.location, types);
             this.displayHotelDetails(hotel.id);
         } catch (error) {
@@ -422,7 +499,12 @@ class HotelMapApp {
     async addFloatingHotelMarker(hotel) {
         const { Marker3DInteractiveElement, PinElement } = this.library;
 
-        const pin = new PinElement({ scale: 1.4 });
+        const pin = new PinElement({
+            scale: 1.4,
+            background: '#8292E7',
+            glyphColor: "#2E49D6",
+            borderColor: "#2E49D6"
+        });
         const marker = new Marker3DInteractiveElement({
             position: {
                 lat: hotel.location.lat,
@@ -578,7 +660,7 @@ class HotelMapApp {
         const createRoutePolyline = () => {
             return new Polyline3DElement({
                 strokeColor: "#f7e76fff",
-                strokeWidth: 7,
+                strokeWidth: 5,
                 altitudeMode: "RELATIVE_TO_MESH",
                 extruded: true,
                 drawsOccludedSegments: true,
@@ -609,8 +691,7 @@ class HotelMapApp {
                 // Create and style pin
                 const pin = new PinElement({
                     scale: 0,
-                    glyph: new URL(`${feature.iconMaskBaseUri}.svg`),
-                    glyphColor: "white"
+
                 });
                 marker.append(pin);
 
@@ -631,7 +712,7 @@ class HotelMapApp {
                         this.activeMarker = null;
                         //When nearby feature gets double clicked
                         this.elements.resetcamerabutton.style.display = 'block';
-                        this.setCamera(feature.location.latitude, feature.location.longitude, this.groundElevation + 100, 35, 250, true);
+                        this.setCamera(feature.location.latitude, feature.location.longitude, this.groundElevation, 35, 150, true);
                     } else {
                         // Set this marker as active
                         marker.label = `⭐${feature.displayName.text}`;
@@ -716,9 +797,10 @@ class HotelMapApp {
         sponsoredContainer.innerHTML = ""; // Clear container
         sponsoredContainer.append(placeDetailsEl);
         if (route) {
-            sponsoredContainer.append(
-                `🚶‍♂️${route.routes[0].localizedValues.duration.text} - ${route.routes[0].localizedValues.distance.text}`
-            );
+            const details = document.createElement("p");
+            details.id = "walking-details";
+            details.innerHTML = `🚶‍♂️${route.routes[0].localizedValues.duration.text} - ${route.routes[0].localizedValues.distance.text}`;
+            sponsoredContainer.appendChild(details);
         }
         sponsoredPopup.style.display = 'block';
     }
@@ -740,9 +822,15 @@ class HotelMapApp {
     }
 
     async getNearbyHotels(location, labels, types) {
-        console.log(location)
+        if (this.activeMarker) {
+            this.activeMarker.remove();
+            this.activeMarker = null;
+        }
+        this.elements.locationTitle.style.display = "block"
+        this.elements.locationsubTitle.style.display = "block"
         //const bounds = this.createBoundsFromCenterAndRadius({ lat: location.lat, lng: location.lng }, 5000);
-
+        this.elements.locationTitle.innerHTML = `Hotels in ${location.formattedAddress}`
+        this.elements.locationsubTitle.innerHTML = `${this.selectedCategories.category1.DisplayName} &nbsp;&nbsp;&nbsp;&nbsp;  ${this.selectedCategories.category2.DisplayName}`
         try {
             this.nearbyMarkers.forEach(marker => marker.remove());
             this.nearbyMarkers = [];
@@ -760,6 +848,9 @@ class HotelMapApp {
             const onLoad = () => {
                 this.addMarkers(types);
                 this.elements.placeList.addEventListener('gmp-select', ({ place }) => {
+                    this.elements.locationTitle.style.display = 'none';
+                    this.elements.locationsubTitle.style.display = 'none';
+
                     this.moveToLocation(place.toJSON(), types);
                 });
                 placeList.removeEventListener('gmp-load', onLoad); // Remove after fire
@@ -782,13 +873,11 @@ class HotelMapApp {
 
         if (weather?.temperature?.degrees !== undefined && weather.weatherCondition) {
             const temp = weather.temperature.degrees;
-            const bgColor = this.getTemperatureColor(temp);
 
             box.innerHTML = `
                 <img src="${weather.weatherCondition.iconBaseUri}.svg" alt="${weather.weatherCondition.condition}">
                 <span> ${temp}°C</span>
             `;
-            box.style.color = bgColor;
             box.style.display = 'inline-flex';
         } else {
             box.innerHTML = `<span>Weather data unavailable</span>`;
@@ -796,16 +885,7 @@ class HotelMapApp {
         }
     }
 
-    getTemperatureColor(temp) {
-        const colors = [
-            { max: 5, color: "#4aacfcff" },
-            { max: 15, color: "#f8eb30ff" },
-            { max: 24, color: "#FFAE00" },
-            { max: 30, color: "#FF5B00" },
-            { max: Infinity, color: "#FF2500" }
-        ];
-        return colors.find(c => temp <= c.max).color;
-    }
+
 
     displayHotelDetails(placeId) {
         this.elements.genRoute.style.display = 'block';
@@ -848,15 +928,17 @@ class HotelMapApp {
 
     async AIWalkingRoute() {
         this.elements.backToHotel.style.display = 'none';
+        this.elements.locationTitle.style.display = 'none';
+        this.elements.locationsubTitle.style.display = 'none';
         this.elements.gobutton.disabled = true;
         this.clearAllRoutes();
-        console.log(this.nearbyPlaces)
+        console.log(this.selectedCategories)
         const requestBody = {
             "contents": [
                 {
                     "parts": [
                         {
-                            "text": `Based on the following list of places and their types, could you generate a JSON object for each stop and describe the stop? You don't need to use all stops, just the ones that are the most interesting based on the ${this.elements.categoryDropdown1.value} and ${this.elements.categoryDropdown2.value} as interests. also return in JSON a short summary title and description of the whole route. The list of location is the following: ${JSON.stringify(this.nearbyPlaces)}. The resulting JSON object should look like: {route_description: string, route_title:string, stops[{name:string,type:string,placeId: string, location: {lat:number,lng:number}, description:string}]}]}`
+                            "text": `Based on the following list of places and their types, could you generate a JSON object for each stop and describe the stop? You don't need to use all stops, just the ones that are the most interesting based on the ${this.selectedCategories.category1.short} and ${this.selectedCategories.category2.short} as interests. also return in JSON a short summary title and description of the whole route. The list of location is the following: ${JSON.stringify(this.nearbyPlaces)}. The resulting JSON object should look like: {route_description: string, route_title:string, stops[{name:string,type:string,placeId: string, location: {lat:number,lng:number}, description:string}]}]}`
                         }
                     ]
                 }
@@ -997,7 +1079,7 @@ class HotelMapApp {
             const createRoutePolyline = () => {
                 return new Polyline3DElement({
                     strokeColor: "#f7e76fff",
-                    strokeWidth: 7,
+                    strokeWidth: 5,
                     altitudeMode: "RELATIVE_TO_GROUND",
                     drawsOccludedSegments: true,
                 });
@@ -1050,6 +1132,7 @@ class HotelMapApp {
                         this.elements.stopsEl.appendChild(div);
                     });
                     this.elements.backToHotel.style.display = "block";
+
                     this.elements.gobutton.disabled = false;
                 }
             } catch (error) {
@@ -1125,20 +1208,28 @@ class HotelMapApp {
         if (card) {
             card.scrollIntoView({ behavior: 'smooth', block: 'start' });
             card.style.background = "#fcf2f2ff";
+            this.fillSponsoredContainer(
+                stop.placeId,
+                null,
+                this.elements.sponsoredContainer,
+                this.elements.sponsoredPopup
+            );
         }
 
         // Highlight the selected marker
         this.RouteMarkers[index].label = `⭐ ${index + 1}. ${stop.name}`;
     }
     async resetBeforeNewPlace() {
-
+        this.clearAllRoutes();
         if (this.nearbyMarkers) this.nearbyMarkers.forEach(marker => marker.remove())
         if (this.RouteMarkers) this.RouteMarkers.forEach(marker => marker.remove())
         if (this.routePolylines) this.routePolylines.forEach(marker => marker.remove())
         if (this.hotelMarkers) this.hotelMarkers.forEach(marker => marker.remove());
-        if (this.activeMarker) this.activeMarker.remove();
+        if (this.activeMarker) {
+            this.activeMarker.remove();
+            this.activeMarker = null; // <-- Ensure it's cleared
+        }
 
-        console.log(this.hotelMarkers)
         this.hotelMarkers = [];
         this.RouteMarkers = [];
         this.routePolylines = [];
@@ -1151,10 +1242,14 @@ class HotelMapApp {
         this.elements.sponsoredContainer.innerHTML = '';
         this.elements.sponsoredPopup.style.display = 'none';
         this.elements.backToHotel.style.display = 'none';
+        this.elements.locationTitle.style.display = 'none';
+        this.elements.locationsubTitle.style.display = 'none';
         this.elements.genRoute.style.display = 'none';
         //this.clearAllRoutes();
     }
     backToHotel() {
+        this.elements.sponsoredPopup.style.display = 'none';
+
         this.nearbyMarkers.forEach(marker => this.map3D.append(marker));
         if (this.RouteMarkers) this.RouteMarkers.forEach(marker => marker.remove());
         this.elements.placeDetails.style.display = 'block';
@@ -1167,16 +1262,20 @@ class HotelMapApp {
     backToAllHotels() {
         console.log(this.hotelMarkers)
         console.log(this.nearbyMarkers)
-        if (this.activeMarker) this.activeMarker.remove();
+        if (this.activeMarker) {
+            this.activeMarker.remove();
+            this.activeMarker = null; // <-- Ensure it's cleared
+        }
         if (this.nearbyMarkers) this.nearbyMarkers.forEach(marker => marker.remove());
         this.elements.placeDetails.style.display = 'none';
         this.elements.routeContainer.style.display = "none";
         this.elements.genRoute.style.display = 'none';
         this.elements.placeList.style.display = 'block';
         this.hotelMarkers.forEach(marker => this.map3D.append(marker));
+        this.elements.locationTitle.style.display = "block"
+        this.elements.locationsubTitle.style.display = "block"
         this.clearAllRoutes();
         this.showHotelList();
-        if (this.activeMarker) this.activeMarker.remove();
 
 
     }
@@ -1185,6 +1284,11 @@ class HotelMapApp {
 
         await this.setCamera(this.selectedPlace.location.lat, this.selectedPlace.location.lng, 10, 35, 5000, false);
 
+    }
+
+    gotorandomplace() {
+        const randomIndex = Math.floor(Math.random() * this.randomdest.length);
+        this.gotopresetplace(this.randomdest[randomIndex].category1, this.randomdest[randomIndex].category2, this.randomdest[randomIndex].location);
     }
 }
 

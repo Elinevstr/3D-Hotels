@@ -43,7 +43,7 @@
   ]},
   "Entertainment & Nightlife": {
     "DisplayName": "🍿 Entertainment & Nightlife",
-    "short": "entertainement",
+    "short": "entertainment",
     "types": [
     "movie_theater",
     "concert_hall",
@@ -55,7 +55,7 @@
 },
   "Relaxation & Wellness": {
     "DisplayName": "🧘 Relaxation & Wellness",
-    "short": "welLness",
+    "short": "wellness",
     "types": [
     "spa",
     "sauna",
