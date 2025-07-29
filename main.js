@@ -69,19 +69,77 @@ class Logger {
     }
 }
 
+// ===== API CACHE MANAGER =====
+class ApiCache {
+    constructor() {
+        this.cache = new Map();
+        this.maxSize = 1000;
+        this.ttl = 5 * 60 * 1000; // 5 minutes
+    }
+
+    generateKey(url, body) {
+        return body ? `${url}:${JSON.stringify(body)}` : url;
+    }
+
+    get(key) {
+        const entry = this.cache.get(key);
+        if (!entry) return null;
+
+        if (Date.now() > entry.expires) {
+            this.cache.delete(key);
+            return null;
+        }
+
+        return entry.data;
+    }
+
+    set(key, data) {
+        if (this.cache.size >= this.maxSize) {
+            const firstKey = this.cache.keys().next().value;
+            this.cache.delete(firstKey);
+        }
+
+        this.cache.set(key, {
+            data,
+            expires: Date.now() + this.ttl
+        });
+    }
+
+    clear() {
+        this.cache.clear();
+    }
+}
+
 // ===== API SERVICE =====
 class ApiService {
     constructor(apiKey, elevationKey) {
         this.apiKey = apiKey;
         this.elevationKey = elevationKey;
+        this.cache = new ApiCache();
     }
 
-    async fetchWithRetry(url, options, maxRetries = CONFIG.MAX_RETRIES) {
+    async fetchWithRetry(url, options, maxRetries = CONFIG.MAX_RETRIES, useCache = true) {
+        if (useCache) {
+            const cacheKey = this.cache.generateKey(url, options?.body);
+            const cached = this.cache.get(cacheKey);
+            if (cached) {
+                Logger.debug('Cache hit for', url);
+                return cached;
+            }
+        }
+
         for (let i = 0; i < maxRetries; i++) {
             try {
                 const response = await fetch(url, options);
                 if (response.ok) {
-                    return await response.json();
+                    const data = await response.json();
+
+                    if (useCache) {
+                        const cacheKey = this.cache.generateKey(url, options?.body);
+                        this.cache.set(cacheKey, data);
+                    }
+
+                    return data;
                 }
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             } catch (error) {
@@ -271,10 +329,67 @@ class ApiService {
     }
 }
 
+// ===== DOM BATCH MANAGER =====
+class DomBatcher {
+    constructor() {
+        this.pendingUpdates = new Map();
+        this.isScheduled = false;
+    }
+
+    batchUpdate(element, properties) {
+        if (!this.pendingUpdates.has(element)) {
+            this.pendingUpdates.set(element, {});
+        }
+
+        Object.assign(this.pendingUpdates.get(element), properties);
+
+        if (!this.isScheduled) {
+            this.isScheduled = true;
+            requestAnimationFrame(() => this.flushUpdates());
+        }
+    }
+
+    flushUpdates() {
+        for (const [element, properties] of this.pendingUpdates) {
+            for (const [prop, value] of Object.entries(properties)) {
+                if (prop.startsWith('style.')) {
+                    const styleProp = prop.substring(6);
+                    element.style[styleProp] = value;
+                } else if (prop === 'innerHTML') {
+                    element.innerHTML = value;
+                } else if (prop === 'textContent') {
+                    element.textContent = value;
+                } else {
+                    element[prop] = value;
+                }
+            }
+        }
+
+        this.pendingUpdates.clear();
+        this.isScheduled = false;
+    }
+
+    immediateUpdate(element, properties) {
+        for (const [prop, value] of Object.entries(properties)) {
+            if (prop.startsWith('style.')) {
+                const styleProp = prop.substring(6);
+                element.style[styleProp] = value;
+            } else if (prop === 'innerHTML') {
+                element.innerHTML = value;
+            } else if (prop === 'textContent') {
+                element.textContent = value;
+            } else {
+                element[prop] = value;
+            }
+        }
+    }
+}
+
 // ===== UI MANAGER =====
 class UIManager {
     constructor(elements) {
         this.elements = elements;
+        this.domBatcher = new DomBatcher();
     }
 
     showLoadingState(message) {
@@ -295,8 +410,10 @@ class UIManager {
     }
 
     animateHeader() {
-        this.elements.map.style.display = 'block';
-        this.elements.placeList.style.display = 'block';
+        // Batch initial style changes
+        this.domBatcher.batchUpdate(this.elements.map, { 'style.display': 'block' });
+        this.domBatcher.batchUpdate(this.elements.placeList, { 'style.display': 'block' });
+
         const header = document.getElementById('main-header');
         const dropdown = document.getElementById('dropdown-container');
 
@@ -305,9 +422,11 @@ class UIManager {
         dropdown.classList.add('slide-up');
 
         setTimeout(() => {
-            document.getElementById('card-container').style.display = 'none';
-            document.getElementById('logo').style.display = 'none';
-            document.getElementById('dropdown-logo').style.display = 'block';
+            // Batch delayed style changes
+            this.domBatcher.batchUpdate(document.getElementById('card-container'), { 'style.display': 'none' });
+            this.domBatcher.batchUpdate(document.getElementById('logo'), { 'style.display': 'none' });
+            this.domBatcher.batchUpdate(document.getElementById('dropdown-logo'), { 'style.display': 'block' });
+
             header.classList.add('slide-back');
             dropdown.classList.remove('slide-up');
             dropdown.classList.add('slide-back');
@@ -499,11 +618,132 @@ class MapManager {
     }
 }
 
+// ===== MARKER POOL =====
+class MarkerPool {
+    constructor(mapManager) {
+        this.mapManager = mapManager;
+        this.hotelPool = [];
+        this.featurePool = [];
+        this.routePool = [];
+        this.maxPoolSize = 50;
+    }
+
+    getHotelMarker(hotel) {
+        let marker = this.hotelPool.pop();
+        if (!marker) {
+            marker = this.createNewHotelMarker();
+        }
+        this.configureHotelMarker(marker, hotel);
+        return marker;
+    }
+
+    returnHotelMarker(marker) {
+        if (this.hotelPool.length < this.maxPoolSize) {
+            this.resetMarker(marker);
+            this.hotelPool.push(marker);
+        } else {
+            marker.remove();
+        }
+    }
+
+    getFeatureMarker(feature) {
+        let marker = this.featurePool.pop();
+        if (!marker) {
+            marker = this.createNewFeatureMarker();
+        }
+        this.configureFeatureMarker(marker, feature);
+        return marker;
+    }
+
+    returnFeatureMarker(marker) {
+        if (this.featurePool.length < this.maxPoolSize) {
+            this.resetMarker(marker);
+            this.featurePool.push(marker);
+        } else {
+            marker.remove();
+        }
+    }
+
+    createNewHotelMarker() {
+        const { Marker3DInteractiveElement, PinElement } = this.mapManager.library;
+        const pin = new PinElement({
+            scale: 1.4,
+            background: '#8292E7',
+            glyphColor: "#2E49D6",
+            borderColor: "#2E49D6"
+        });
+
+        const marker = new Marker3DInteractiveElement({
+            altitudeMode: "RELATIVE_TO_MESH",
+            collisionBehavior: google.maps.CollisionBehavior.REQUIRED,
+            extruded: false
+        });
+
+        marker.append(pin);
+        return marker;
+    }
+
+    createNewFeatureMarker() {
+        const { Marker3DInteractiveElement, PinElement } = this.mapManager.library;
+        const pin = new PinElement({ scale: 0 });
+
+        const marker = new Marker3DInteractiveElement({
+            altitudeMode: "RELATIVE_TO_MESH",
+            extruded: true,
+            collisionBehavior: google.maps.CollisionBehavior.OPTIONAL_AND_HIDES_LOWER_PRIORITY
+        });
+
+        marker.append(pin);
+        return marker;
+    }
+
+    configureHotelMarker(marker, hotel) {
+        marker.position = {
+            lat: hotel.location.lat,
+            lng: hotel.location.lng,
+        };
+    }
+
+    configureFeatureMarker(marker, feature) {
+        marker.position = {
+            lat: feature.location.latitude,
+            lng: feature.location.longitude,
+        };
+        marker.label = feature.displayName.text;
+        marker.originalLabel = feature.displayName.text;
+    }
+
+    resetMarker(marker) {
+        marker.label = '';
+        marker.originalLabel = '';
+        // Remove all event listeners by cloning the marker element
+        const newMarker = marker.cloneNode(true);
+        if (marker.parentNode) {
+            marker.parentNode.replaceChild(newMarker, marker);
+        }
+        return newMarker;
+    }
+
+    clear() {
+        [...this.hotelPool, ...this.featurePool, ...this.routePool].forEach(marker => {
+            try {
+                marker.remove();
+            } catch (error) {
+                Logger.error("Error removing pooled marker", error);
+            }
+        });
+        this.hotelPool.length = 0;
+        this.featurePool.length = 0;
+        this.routePool.length = 0;
+    }
+}
+
 // ===== MARKER MANAGER =====
 class MarkerManager {
     constructor(mapManager, apiService) {
         this.mapManager = mapManager;
         this.apiService = apiService;
+        this.markerPool = new MarkerPool(mapManager);
         this.activeMarker = null;
         this.activeFeatureMarker = null;
         this.nearbyMarkers = [];
@@ -515,26 +755,7 @@ class MarkerManager {
     }
 
     async createHotelMarker(hotel) {
-        const { Marker3DInteractiveElement, PinElement } = this.mapManager.library;
-
-        const pin = new PinElement({
-            scale: 1.4,
-            background: '#8292E7',
-            glyphColor: "#2E49D6",
-            borderColor: "#2E49D6"
-        });
-
-        const marker = new Marker3DInteractiveElement({
-            position: {
-                lat: hotel.location.lat,
-                lng: hotel.location.lng,
-            },
-            altitudeMode: "RELATIVE_TO_MESH",
-            collisionBehavior: google.maps.CollisionBehavior.REQUIRED,
-            extruded: false
-        });
-
-        marker.append(pin);
+        const marker = this.markerPool.getHotelMarker(hotel);
         this.mapManager.map3D.append(marker);
         return marker;
     }
@@ -549,11 +770,30 @@ class MarkerManager {
     }
 
     clearAllMarkers() {
-        [...this.nearbyMarkers, ...this.hotelMarkers, ...this.routeMarkers].forEach(marker => {
+        // Return markers to pool instead of destroying them
+        this.nearbyMarkers.forEach(marker => {
+            try {
+                this.mapManager.map3D.removeChild(marker);
+                this.markerPool.returnFeatureMarker(marker);
+            } catch (error) {
+                Logger.error("Error removing nearby marker", error);
+            }
+        });
+
+        this.hotelMarkers.forEach(marker => {
+            try {
+                this.mapManager.map3D.removeChild(marker);
+                this.markerPool.returnHotelMarker(marker);
+            } catch (error) {
+                Logger.error("Error removing hotel marker", error);
+            }
+        });
+
+        this.routeMarkers.forEach(marker => {
             try {
                 marker.remove();
             } catch (error) {
-                Logger.error("Error removing marker", error);
+                Logger.error("Error removing route marker", error);
             }
         });
 
@@ -563,7 +803,8 @@ class MarkerManager {
 
         if (this.activeMarker) {
             try {
-                this.activeMarker.remove();
+                this.mapManager.map3D.removeChild(this.activeMarker);
+                this.markerPool.returnHotelMarker(this.activeMarker);
             } catch (error) {
                 Logger.error("Error removing active marker", error);
             }
@@ -816,7 +1057,7 @@ class HotelMapApp {
             await this.gotoPlace();
         } catch (error) {
             Logger.error("Error in go button handler", error);
-            this.uiManager.showErrorState("Failed to process your request");
+            this.uiManager.showErrorState("Failed to process your request"); ut
         }
     }
 
@@ -828,11 +1069,6 @@ class HotelMapApp {
         this.uiManager.showLoadingState("Processing your request...");
 
         try {
-            if (this.markerManager.activeMarker) {
-                this.markerManager.activeMarker.remove();
-                this.markerManager.activeMarker = null;
-            }
-
             this.uiManager.animateHeader();
             await this.resetBeforeNewPlace();
 
@@ -876,27 +1112,25 @@ class HotelMapApp {
     async resetBeforeNewPlace() {
         if (this.activeMarker) {
             this.activeMarker.remove();
-            this.activeMarker = null; // <-- Ensure it's cleared
+            this.activeMarker = null;
         }
         this.markerManager.clearAllRoutes();
         this.markerManager.clearAllMarkers();
-        this.elements.detailPopup.style.display = 'none';
 
-        this.elements.aiRouteContainer.style.display = 'none';
-        // Reset UI elements
+        // Batch all UI element hiding operations
         const elementsToHide = [
-            'airouteContainer', 'placeDetails', 'backToAllHotelsButton', 'detailPopup',
-            'backToHotelButton', 'locationTitle', 'locationSubtitle', 'genRouteButton'
+            'detailPopup', 'aiRouteContainer', 'airouteContainer', 'placeDetails',
+            'backToAllHotelsButton', 'backToHotelButton', 'genRouteButton'
         ];
 
         elementsToHide.forEach(elementKey => {
             if (this.elements[elementKey]) {
-                this.elements[elementKey].style.display = 'none';
+                this.uiManager.domBatcher.batchUpdate(this.elements[elementKey], { 'style.display': 'none' });
             }
         });
 
         if (this.elements.detailPopupContainer) {
-            this.elements.detailPopupContainer.innerHTML = '';
+            this.uiManager.domBatcher.batchUpdate(this.elements.detailPopupContainer, { innerHTML: '' });
         }
         this.nearbyPlaces = [];
     }
@@ -960,10 +1194,15 @@ class HotelMapApp {
 
     async getNearbyHotels(location, labels, types) {
         try {
-            this.elements.locationTitle.style.display = "block";
-            this.elements.locationSubtitle.style.display = "block";
-            this.elements.locationTitle.innerHTML = `Hotels in ${location.formattedAddress}`;
-            this.elements.locationSubtitle.innerHTML = `${this.selectedCategories.category1.DisplayName} &nbsp;&nbsp;&nbsp;&nbsp; ${this.selectedCategories.category2.DisplayName}`;
+            // Use immediate updates to ensure these show after batched hide operations
+            this.uiManager.domBatcher.immediateUpdate(this.elements.locationTitle, {
+                'style.display': 'block',
+                innerHTML: `Hotels in ${location.formattedAddress}`
+            });
+            this.uiManager.domBatcher.immediateUpdate(this.elements.locationSubtitle, {
+                'style.display': 'block',
+                innerHTML: `${this.selectedCategories.category1.DisplayName} &nbsp;&nbsp;&nbsp;&nbsp; ${this.selectedCategories.category2.DisplayName}`
+            });
 
             this.markerManager.clearAllMarkers();
             this.elements.backToAllHotelsButton.style.display = 'none';
@@ -1063,12 +1302,20 @@ class HotelMapApp {
                 false
             );
             this.elements.resetCameraButton.style.display = 'block';
-            this.markerManager.activeMarker = await this.markerManager.createHotelMarker(hotel);
-            this.mapManager.groundElevation = await this.apiService.getElevation(hotel.location.lat, hotel.location.lng);
-            const transportData = await this.apiService.getPublicTransport(hotel.location);
+
+            // Parallelize API calls for better performance
+            const [marker, elevation, transportData] = await Promise.all([
+                this.markerManager.createHotelMarker(hotel),
+                this.apiService.getElevation(hotel.location.lat, hotel.location.lng),
+                this.apiService.getPublicTransport(hotel.location)
+            ]);
+
+            this.markerManager.activeMarker = marker;
+            this.mapManager.groundElevation = elevation;
             const count = transportData?.count || 0;
             console.log(transportData)
             this.uiManager.showPublicTransportInfo(count);
+
             this.markerManager.activeMarker.addEventListener('gmp-click', async () => {
                 await this.mapManager.setCamera(
                     hotel.location.lat,
@@ -1080,8 +1327,6 @@ class HotelMapApp {
                 );
                 this.elements.resetCameraButton.style.display = 'block';
             });
-
-
 
             this.debouncedSearch(hotel.location, types);
             this.uiManager.displayHotelDetails(hotel.id);
@@ -1279,6 +1524,7 @@ class HotelMapApp {
             this.elements.locationSubtitle.style.display = 'none';
             this.elements.publicTransportInfo.style.display = 'none';
 
+
             this.elements.gobutton.disabled = true;
 
             this.markerManager.clearAllRoutes();
@@ -1344,6 +1590,7 @@ class HotelMapApp {
 
                 // Set camera view
                 if (route.routes[0].viewport) {
+                    this.elements.resetCameraButton.style.display = 'none';
                     const { high, low } = route.routes[0].viewport;
                     const centerLat = (high.latitude + low.latitude) / 2;
                     const centerLng = (high.longitude + low.longitude) / 2;
