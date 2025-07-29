@@ -518,7 +518,7 @@ gmp-place-autocomplete svg {
 #location-subtitle {
   text-align: center;
 
-  margin: 0;
+  margin: 0 0 10px 0;
   color: var(--brand-accent);
   font-size: small;
 }

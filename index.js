@@ -4,7 +4,7 @@ const CONFIG = {
     MAX_RESULTS: 20,
     ANIMATION_DURATION: 3000,
     CAMERA_RANGES: {
-        OVERVIEW: 8000,
+        OVERVIEW: 10000,
         DETAIL: 4000,
         CLOSE_UP: 250,
         SUPER_OVERVIEW: 50000000
@@ -897,7 +897,7 @@ class HotelMapApp {
                 category2: "Food & Drink"
             },
             {
-                location: { formattedAddress: "Buenos Aires, Argentina", location: { lat: - 34.613711363224844, lng: -58.41610868724004 } },
+                location: { formattedAddress: "Buenos Aires, Argentina", location: { lat: -34.60301220054633, lng: - 58.38642833903091 } },
                 category1: "Entertainment & Nightlife",
                 category2: "Culture & History"
             },
@@ -1019,7 +1019,7 @@ class HotelMapApp {
                 category2: "Relaxation & Wellness"
             },
             'tokyo': {
-                location: { formattedAddress: 'Tokyo, Japan', location: { lat: 35.6762, lng: 139.6503 } },
+                location: { formattedAddress: 'Tokyo, Japan', location: { lat: 35.67416337506583, lng: 139.75532420749389 } },
                 category1: "Shopping",
                 category2: "Entertainment & Nightlife"
             },
