@@ -3,24 +3,37 @@
    ========================================================================== */
 @import url("https://fonts.googleapis.com/css2?family=Averia+Sans+Libre:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&family=Fredoka:wght@300..700&family=Intel+One+Mono:ital,wght@0,300..700;1,300..700&family=Inter+Tight:ital,wght@0,100..900;1,100..900&family=Noto+Sans+SC:wght@100..900&family=Special+Gothic+Expanded+One&display=swap");
 :root {
-  /* Colors */
-  --primary-color: #007bff; /* Vibrant blue */
-  --secondary-color: #f8f9fa; /* Light grey background */
-  --heading-color: #062240; /* Dark blue for headings/prominent text */
-  --text-color: #343a40; /* Dark grey for body text */
-  --text-light: #6c757d; /* Lighter grey for secondary text */
-  --border-color: #dee2e6; /* Subtle border */
+  /* Brand Colors */
+  --brand-primary: #4343d0; /* Main brand blue */
+  --brand-secondary: #071f97; /* Dark brand blue */
+  --brand-tertiary: #06176d; /* Darker brand blue */
+  --brand-accent: #081f97; /* Accent blue */
+
+  /* Background Colors */
+  --bg-primary: #faf3cd; /* Main cream background */
+  --bg-secondary: #fcf8e2; /* Light cream background */
+  --bg-tertiary: #f9f5da; /* Input/form background */
+  --bg-card: #fdfdfd; /* Card background */
+  --bg-highlight: #fcf2f2ff; /* Hover/selection background */
+
+  /* Legacy colors (keeping for compatibility) */
+  --primary-color: var(--brand-primary);
+  --secondary-color: var(--bg-secondary);
+  --heading-color: var(--brand-secondary);
+  --text-color: var(--brand-secondary);
+  --text-light: #6c757d;
+  --border-color: #dee2e6;
   --white: #ffffff;
-  --danger-color: #dc3545; /* Red for errors */
-  --warning-color: #e67e22; /* Orange for ratings */
-  --success-bg-light: #e0fdee; /* Light green background for price */
-  --success-border: #a3e9b8; /* Subtle green border */
-  --info-bg-light: #e9ecef; /* Light grey for generic tags */
-  --info-border: #ced4da; /* Medium grey border */
-  --overlay-bg: rgba(0, 51, 102, 0.959); /* Dark semi-transparent overlay */
+  --danger-color: #dc3545;
+  --warning-color: #e67e22;
+  --success-bg-light: #e0fdee;
+  --success-border: #a3e9b8;
+  --info-bg-light: #e9ecef;
+  --info-border: #ced4da;
+  --overlay-bg: rgba(0, 51, 102, 0.959);
   --shadow-color: rgba(0, 0, 0, 0.1);
   --shadow-color-hover: rgba(0, 0, 0, 0.15);
-  --popup-bg: rgba(255, 255, 255, 0.95); /* Semi-transparent white for popup */
+  --popup-bg: rgba(255, 255, 255, 0.95);
   --gmp-mat-color-on-surface: #2c2c5c;
   --gmp-mat-color-on-surface-variant: #59597a;
   --gmp-mat-color-primary: #5050e0;
@@ -55,6 +68,94 @@
   --transition-speed: 2s;
   --transition-timing: ease-in-out;
 }
+
+/* ==========================================================================
+   Utility Classes
+   ========================================================================== */
+
+/* Display utilities */
+.flex {
+  display: flex;
+}
+.block {
+  display: block;
+}
+.inline-block {
+  display: inline-block;
+}
+.hidden {
+  display: none !important;
+}
+
+/* Text alignment */
+.text-center {
+  text-align: center;
+}
+.text-left {
+  text-align: left;
+}
+.text-right {
+  text-align: right;
+}
+
+/* Flexbox utilities */
+.flex-col {
+  flex-direction: column;
+}
+.flex-row {
+  flex-direction: row;
+}
+.items-center {
+  align-items: center;
+}
+.justify-center {
+  justify-content: center;
+}
+.justify-between {
+  justify-content: space-between;
+}
+.justify-around {
+  justify-content: space-around;
+}
+
+/* Border radius utilities */
+.rounded-sm {
+  border-radius: var(--border-radius-small);
+}
+.rounded-md {
+  border-radius: var(--border-radius-medium);
+}
+.rounded-lg {
+  border-radius: var(--border-radius-large);
+}
+.rounded-full {
+  border-radius: 50%;
+}
+.rounded-pill {
+  border-radius: 25px;
+}
+
+/* Info box component - shared styles for weather, transport, etc */
+.info-box {
+  border-radius: 25px;
+  padding: 6px 10px;
+  font-size: var(--base-font-size);
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  box-shadow: var(--box-shadow-soft);
+  display: inline-flex;
+}
+
+.info-box p {
+  margin: 0;
+}
+
+.info-box img {
+  width: 20px;
+  vertical-align: middle;
+  margin: 0;
+}
 .main-container {
   display: flex;
   flex-direction: row;
@@ -79,12 +180,12 @@ footer a {
 /* General Styles */
 html,
 body {
-  color: #071f97;
+  color: var(--brand-secondary);
   font-family: var(--main-font);
   height: 100vh;
   margin: 0;
   padding: 0;
-  scrollbar-color: #faf3cd #fcf8e2;
+  scrollbar-color: var(--bg-primary) var(--bg-secondary);
   scrollbar-width: thin;
 }
 
@@ -99,9 +200,9 @@ body {
   height: 60px;
   width: 100%;
   text-align: center;
-  color: #071f97;
+  color: var(--brand-secondary);
   gap: 25px;
-  background-color: #faf3cd;
+  background-color: var(--bg-primary);
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -145,7 +246,7 @@ body {
   z-index: 1000;
   /* Set a default header height */
   height: var(--header-height); /* 60px */
-  background-color: #faf3cd;
+  background-color: var(--bg-primary);
   /* Use the same transition timing as dropdown */
   transition: height var(--transition-speed) var(--transition-timing),
     transform var(--transition-speed) var(--transition-timing);
@@ -155,7 +256,7 @@ body {
 /* Expanded state - fullscreen */
 #main-header.expanded {
   height: 100vh;
-  background-color: #faf3cd;
+  background-color: var(--bg-primary);
   transform: translateY(0); /* Normal position when expanded */
 }
 
@@ -178,11 +279,11 @@ body {
 gmp-place-autocomplete {
   color-scheme: light;
   border-radius: 25px;
-  background-color: #f9f5da;
-  color: #071f97;
+  background-color: var(--bg-tertiary);
+  color: var(--brand-secondary);
   width: 250px;
   height: 40px;
-  border: 2px solid #4343d0;
+  border: 2px solid var(--brand-primary);
 }
 gmp-place-autocomplete svg {
   color: #a2b9ce;
@@ -192,47 +293,38 @@ gmp-place-autocomplete svg {
   max-width: 200px;
   height: 40px;
   font-family: var(--main-font);
-  background-color: #f9f5da;
+  background-color: var(--bg-tertiary);
   border: 0px;
   text-align: center;
-  border: 2px solid #4343d0;
-  color: #071f97;
+  border: 2px solid var(--brand-primary);
+  color: var(--brand-secondary);
   font-size: 15px;
 }
 
-#gobutton {
-  border-radius: 30px;
-  min-width: 100px;
-  background-color: #4343d0;
-  height: 40px;
-  cursor: pointer;
-  color: #f9f5da;
-  border: 2px solid #4343d0;
-  text-align: center;
-  padding: 6px 12px;
-  font-weight: bold;
-  font-family: var(--main-font);
-}
-#gobutton:hover {
-  background-color: #f9f5da;
-  color: #4343d0;
-}
+/* Base button component */
+.btn,
+#gobutton,
 .sidebar-button {
   border-radius: 30px;
   min-width: 100px;
-  background-color: #4343d0;
   height: 40px;
   cursor: pointer;
-  color: #f9f5da;
-  border: 2px solid #4343d0;
+  border: 2px solid var(--brand-primary);
   text-align: center;
   padding: 6px 12px;
   font-weight: bold;
   font-family: var(--main-font);
+  background-color: var(--brand-primary);
+  color: var(--bg-tertiary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+  display: inline-block;
 }
+
+.btn:hover,
+#gobutton:hover,
 .sidebar-button:hover {
-  background-color: #f9f5da;
-  color: #4343d0;
+  background-color: var(--bg-tertiary);
+  color: var(--brand-primary);
 }
 /* === NEW: Styles for Header Title Container === */
 .header-title {
@@ -254,12 +346,12 @@ gmp-place-autocomplete svg {
   border-radius: 12px;
   align-items: center;
   top: var(--header-height); /* Position below header */
-  background: #fcf8e2;
+  background: var(--bg-secondary);
   color: var(--heading-color); /* Use variable */
   overflow-y: auto;
   height: 100%;
   font-family: var(--main-font);
-  scrollbar-color: #4343d0 #fcf8e2;
+  scrollbar-color: var(--brand-primary) var(--bg-secondary);
   scrollbar-width: thin;
   box-shadow: -2px 0 8px var(--shadow-color);
   border-left: 1px solid var(--border-color);
@@ -299,50 +391,45 @@ gmp-place-autocomplete svg {
   white-space: nowrap;
 }
 
-.weather-info-box {
-  background-color: #4343d0; /* Default, overridden dynamically */
-  color: #fcf8e2;
-  border-radius: 25px;
-  padding: 6px 10px;
-  font-size: var(--base-font-size);
-  align-items: center;
-  gap: 6px;
-  width: fit-content;
-  display: none;
-  box-shadow: var(--box-shadow-soft);
-  transition: background-color 0.3s ease;
+#weather-info {
+  background-color: var(--brand-primary);
+  color: var(--bg-secondary);
+  display: none; /* Override default info-box display */
 }
 #reset-camera-button {
-  position: absolute;
-  bottom: -20px;
-  left: 45%;
-  z-index: 998;
+  /* Inherit base button styles */
   border-radius: 30px;
   min-width: 100px;
-  background-color: #4343d0;
   height: 40px;
   cursor: pointer;
-  color: #f9f5da;
-  border: 2px solid #4343d0;
+  border: 2px solid var(--brand-primary);
   text-align: center;
   padding: 6px 12px;
   font-weight: bold;
   font-family: var(--main-font);
+  background-color: var(--brand-primary);
+  color: var(--bg-tertiary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+
+  /* Specific positioning */
+  position: absolute;
+  bottom: -20px;
+  left: 45%;
+  z-index: 998;
   box-shadow: var(--box-shadow-soft);
-  transition: background-color 0.3s ease;
 }
 
-.weather-info-box img {
-  width: 20px;
-
-  vertical-align: middle;
-  margin: 0;
+#reset-camera-button:hover {
+  background-color: var(--bg-tertiary);
+  color: var(--brand-primary);
 }
+
+/* Weather box images handled by .info-box img */
 
 .nearby-places-info {
   margin-top: 12px; /* Space above this section */
   padding: 10px; /* Inner padding */
-  background-color: #fdfdfd; /* Very subtle background difference */
+  background-color: var(--bg-card); /* Very subtle background difference */
   border: 1px solid var(--border-color); /* Optional border */
   border-radius: var(--border-radius-medium); /* Consistent rounding */
   text-align: center;
@@ -394,10 +481,7 @@ gmp-place-autocomplete svg {
   margin-top: 5px;
 }
 
-/* Example utility class */
-.hidden {
-  display: none !important; /* Force hide */
-}
+/* Moved to utility classes section above */
 
 .detail-popup {
   position: absolute;
@@ -493,8 +577,9 @@ gmp-place-autocomplete svg {
 }
 #location-subtitle {
   text-align: center;
+
   margin: 0;
-  color: #081f97;
+  color: var(--brand-accent);
   font-size: small;
 }
 #logo {
@@ -547,7 +632,7 @@ gmp-place-autocomplete svg {
   text-align: center;
   font-weight: bold;
   font-size: 16px;
-  color: #4343d0;
+  color: var(--brand-primary);
   pointer-events: none;
   white-space: nowrap;
 }
@@ -560,23 +645,7 @@ gmp-place-autocomplete svg {
   bottom: -40px;
 }
 
-@keyframes vertical-shaking {
-  0% {
-    transform: translateY(0);
-  }
-  25% {
-    transform: translateY(5px);
-  }
-  50% {
-    transform: translateY(-5px);
-  }
-  75% {
-    transform: translateY(5px);
-  }
-  100% {
-    transform: translateY(0);
-  }
-}
+/* Removed unused vertical-shaking animation */
 #ai-route-loading {
   text-align: center;
   font-weight: 500;
@@ -618,34 +687,32 @@ gmp-place-autocomplete svg {
 }
 
 .ai-stop-card {
-  padding: 10px;
+  padding: 15px;
   display: flex;
-  color: #06176d;
+  color: var(--brand-tertiary);
   flex-direction: column;
   gap: 0px;
   margin: 10px 0 10px 0;
   text-align: center;
-  padding: 15px;
 }
 
 .ai-stop-card:hover {
-  background-color: #fcf2f2ff;
+  background-color: var(--bg-highlight);
   cursor: pointer;
 }
 .ai-stop-card p {
   margin: 0 0 5px 0;
 }
 .ai-stop-card em {
-  color: #4343d0;
+  color: var(--brand-primary);
 }
 .ai-stop-card h4 {
   margin: 0;
 }
 #ai-route-summary {
-  padding: 10px;
-  text-align: center;
   padding: 15px;
-  background-color: #faf3cd;
+  text-align: center;
+  background-color: var(--bg-primary);
   margin: 5px;
   border-radius: 12px;
 }
@@ -653,14 +720,14 @@ gmp-place-autocomplete svg {
   margin-bottom: 0;
 }
 #route-summary-distance {
-  color: #4343d0;
+  color: var(--brand-primary);
   margin: 0;
 }
 
 gmp-place-search {
   color-scheme: light;
-  background-color: #fcf8e2;
-  border: 2px solid #fcf8e2;
+  background-color: white;
+  border: 2px solid var(--bg-secondary);
 }
 
 #button-container {
@@ -672,7 +739,7 @@ gmp-place-search {
 }
 #location-title {
   text-align: center;
-  color: #4343d0;
+  color: var(--brand-primary);
   margin-bottom: 0;
 }
 .list-container {
@@ -682,7 +749,7 @@ gmp-place-details {
   background-color: white;
 }
 gmp-internal-place-search-list-item {
-  background-color: #fcf8e2;
+  background-color: var(--bg-secondary);
 }
 gmp-place-details-compact {
   border: 0px;
@@ -695,21 +762,10 @@ gmp-place-details-compact {
 }
 
 #public-transport-info {
-  background-color: #faf3cd; /* Default, overridden dynamically */
-  color: #4343d0;
-  border-radius: 25px;
-  padding: 6px 10px;
-  font-size: var(--base-font-size);
-  align-items: center;
-  gap: 6px;
-  width: fit-content;
-
-  box-shadow: var(--box-shadow-soft);
-  transition: background-color 0.3s ease;
+  background-color: var(--bg-primary);
+  color: var(--brand-primary);
 }
-#public-transport-info p {
-  margin: 0;
-}
+/* Public transport info p handled by .info-box p */
 #overlay-container {
   position: absolute;
   width: fit-content;
@@ -725,8 +781,8 @@ gmp-place-details-compact {
   width: 14px;
   height: 14px;
   margin-right: 6px;
-  border: 2px solid #faf3cd;
-  border-top-color: #4343d0;
+  border: 2px solid var(--bg-primary);
+  border-top-color: var(--brand-primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   vertical-align: middle;

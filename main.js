@@ -508,7 +508,7 @@ class UIManager {
             if (stepIndex >= loadingSteps.length - 1) {
                 clearInterval(interval);
             }
-        }, 4000);
+        }, 4500);
 
         // Expose a cleanup function for when the API is done
         return () => {
@@ -830,6 +830,18 @@ class MarkerManager {
             }
         });
         this.routePolylines.length = 0;
+    }
+
+    resetNearbyMarkerLabels() {
+        // Reset all nearby markers to their original labels (remove stars)
+        this.nearbyMarkers.forEach(marker => {
+            if (marker.originalLabel) {
+                marker.label = marker.originalLabel;
+            }
+        });
+
+        // Clear the active feature marker reference
+        this.activeFeatureMarker = null;
     }
 }
 
@@ -1524,10 +1536,9 @@ class HotelMapApp {
             this.elements.locationSubtitle.style.display = 'none';
             this.elements.publicTransportInfo.style.display = 'none';
 
-
             this.elements.gobutton.disabled = true;
 
-            this.markerManager.clearAllRoutes();
+
 
             // Show loading UI
             this.elements.loadingStepsContainer.innerHTML = "";
@@ -1581,6 +1592,7 @@ class HotelMapApp {
             );
 
             if (route?.routes?.[0]) {
+                this.markerManager.clearAllRoutes();
                 this.markerManager.nearbyMarkers.forEach(marker => marker.remove());
 
                 const optimizedIndexes = route.routes[0].optimizedIntermediateWaypointIndex || [];
@@ -1590,6 +1602,9 @@ class HotelMapApp {
 
                 // Set camera view
                 if (route.routes[0].viewport) {
+                    // Reset any starred labels from nearby markers before generating AI route
+                    this.markerManager.resetNearbyMarkerLabels();
+                    this.markerManager.clearAllRoutes();
                     this.elements.resetCameraButton.style.display = 'none';
                     const { high, low } = route.routes[0].viewport;
                     const centerLat = (high.latitude + low.latitude) / 2;
@@ -1709,6 +1724,7 @@ class HotelMapApp {
 
     // Navigation methods
     async backToHotelButton() {
+
         this.elements.aiRouteLoading.innerHTML = ""; // Clear any error message
         this.elements.aiRouteLoading.style.display = 'none'; // Hide the loader
         this.elements.publicTransportInfo.style.display = 'block';
@@ -1741,12 +1757,12 @@ class HotelMapApp {
     }
 
     async backToAllHotelsButton() {
-        this.markerManager.activeFeatureMarker = null;
-
         if (this.markerManager.activeMarker) {
             this.markerManager.activeMarker.remove();
             this.markerManager.activeMarker = null;
         }
+        this.markerManager.activeFeatureMarker = null;
+
         this.elements.publicTransportInfo.style.display = 'none';
         this.elements.detailPopup.style.display = 'none';
 
