@@ -266,7 +266,6 @@ class ApiService {
     }
 
     async getPublicTransport(location) {
-        console.log(location)
         Utils.validateLocation(location);
         const requestBody = {
             insights: [
@@ -441,7 +440,6 @@ class UIManager {
     }
 
     showWeatherInfo(weather) {
-        console.log(this.elements)
         const box = this.elements.weatherInfo;
         box.innerHTML = '';
         box.style.display = 'none';
@@ -939,7 +937,6 @@ class HotelMapApp {
             const camelCase = id.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
             elements[camelCase] = document.getElementById(id);
         });
-        console.log(elements)
         elements.placeList = document.querySelector("gmp-place-search");
         elements.placeDetails = document.querySelector("gmp-place-details");
         elements.placeDetailsRequest = document.querySelector("gmp-place-details-place-request");
@@ -1306,7 +1303,6 @@ class HotelMapApp {
             this.markerManager.activeMarker = marker;
             this.mapManager.groundElevation = elevation;
             const count = transportData?.count || 0;
-            console.log(transportData)
             this.uiManager.showPublicTransportInfo(count);
 
             this.markerManager.activeMarker.addEventListener('gmp-click', async () => {
