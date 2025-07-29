@@ -829,7 +829,7 @@ class HotelMapApp {
     constructor() {
 
         this.apiKey = "AIzaSyCVNX6mCprAYiGp8RUaf9yc6H-00fLR1Ns";
-        this.elevationKey = "AIzaSyCCThoiMgZnmvLy0Nc2AeITEkNjE6dSlps";
+        this.elevationKey = "AIzaSyDZ-DAg2Iz37p9YIi_XtKui44L74AlF6bA";
 
         this.apiService = new ApiService(this.apiKey, this.elevationKey);
 
