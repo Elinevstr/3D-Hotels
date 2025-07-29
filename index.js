@@ -1535,7 +1535,6 @@ class HotelMapApp {
             this.elements.aiRouteLoading.style.display = 'block';
 
             const aiData = await this.apiService.generateAIRoute(this.nearbyPlaces, this.selectedCategories);
-            finishLoadingStep();
             await this.calculateAIRoute(aiData);
         } catch (error) {
             Logger.error("Error generating AI route", error);
