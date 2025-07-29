@@ -332,7 +332,9 @@ class ApiService {
                     "Content-Type": "application/json",
                     "X-Goog-Api-Key": this.apiKey
                 }
-            });
+            },
+                CONFIG.MAX_RETRIES,
+                false);
 
             const cleanedData = data.candidates[0].content.parts[0].text
                 .replace(/^```json\s*/, '')
@@ -1520,7 +1522,6 @@ class HotelMapApp {
 
     async generateAIWalkingRoute() {
 
-        this.apiService.cache.clear();
         try {
             this.elements.backToHotelButton.style.display = 'none';
             this.elements.locationTitle.style.display = 'none';
