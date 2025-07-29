@@ -112,8 +112,10 @@ class ApiService {
     }
 
     async fetchWithRetry(url, options, maxRetries = CONFIG.MAX_RETRIES, useCache = true) {
+        const cacheKey = this.cache.generateKey(url, options?.body);
+
+        // ✅ Check cache first
         if (useCache) {
-            const cacheKey = this.cache.generateKey(url, options?.body);
             const cached = this.cache.get(cacheKey);
             if (cached) {
                 Logger.debug('Cache hit for', url);
@@ -124,20 +126,33 @@ class ApiService {
         for (let i = 0; i < maxRetries; i++) {
             try {
                 const response = await fetch(url, options);
-                if (response.ok) {
-                    const data = await response.json();
 
-                    if (useCache) {
-                        const cacheKey = this.cache.generateKey(url, options?.body);
-                        this.cache.set(cacheKey, data);
-                    }
-
-                    return data;
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+
+                const data = await response.json();
+
+                const isValid = data && Object.keys(data).length > 0;
+
+                if (useCache && isValid) {
+                    this.cache.set(cacheKey, data);
+                } else if (useCache && !isValid) {
+                    this.cache.delete(cacheKey);
+                    Logger.debug('Removed invalid response from cache:', url);
+                }
+
+                return data;
+
             } catch (error) {
                 Logger.error(`API call failed (attempt ${i + 1}/${maxRetries})`, error);
-                if (i === maxRetries - 1) throw error;
+                if (i === maxRetries - 1) {
+                    if (useCache) {
+                        this.cache.delete(cacheKey);
+                    }
+                    throw error;
+                }
+
                 await Utils.delay(CONFIG.RETRY_DELAY * Math.pow(2, i));
             }
         }
