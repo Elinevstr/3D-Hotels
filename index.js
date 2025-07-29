@@ -106,9 +106,8 @@ class ApiCache {
 }
 
 class ApiService {
-    constructor(apiKey, elevationKey) {
+    constructor(apiKey) {
         this.apiKey = apiKey;
-        this.elevationKey = elevationKey;
         this.cache = new ApiCache();
     }
 
@@ -231,11 +230,22 @@ class ApiService {
     async getElevation(lat, lng) {
         Utils.validateLocation({ lat, lng });
 
-        const url = `https://maps.googleapis.com/maps/api/elevation/json?locations=${lat}%2C${lng}&key=${this.elevationKey}`;
-
         try {
-            const data = await this.fetchWithRetry(url);
-            return data?.results?.[0]?.elevation || 0;
+            const elevator = new google.maps.ElevationService();
+            const results = await new Promise((resolve, reject) => {
+                elevator.getElevationForLocations(
+                    { locations: [{ lat, lng }] },
+                    (results, status) => {
+                        if (status === "OK") {
+                            resolve(results);
+                        } else {
+                            reject(`ElevationService failed: ${status}`);
+                        }
+                    }
+                );
+            });
+
+            return results?.[0]?.elevation || 0;
         } catch (error) {
             Logger.error("Elevation fetch failed", error);
             return 0;
@@ -530,19 +540,22 @@ class MapManager {
                 { Marker3DInteractiveElement, Map3DElement, MapMode, AltitudeMode, Polyline3DElement },
                 { PinElement },
                 { encoding },
-                { PlaceAutocompleteElement }
+                { PlaceAutocompleteElement },
+                { ElevationService }
             ] = await Promise.all([
                 google.maps.importLibrary("maps"),
                 google.maps.importLibrary("maps3d"),
                 google.maps.importLibrary("marker"),
                 google.maps.importLibrary("geometry"),
-                google.maps.importLibrary("places")
+                google.maps.importLibrary("places"),
+                google.maps.importLibrary("elevation")
+
             ]);
 
             this.library = {
                 Map, LatLngBounds, Marker3DInteractiveElement, Map3DElement,
                 MapMode, AltitudeMode, Polyline3DElement, PinElement, encoding,
-                PlaceAutocompleteElement
+                PlaceAutocompleteElement, ElevationService
             };
 
             await this.initializeMap();
@@ -829,9 +842,8 @@ class HotelMapApp {
     constructor() {
 
         this.apiKey = "AIzaSyCVNX6mCprAYiGp8RUaf9yc6H-00fLR1Ns";
-        this.elevationKey = "AIzaSyDZ-DAg2Iz37p9YIi_XtKui44L74AlF6bA";
 
-        this.apiService = new ApiService(this.apiKey, this.elevationKey);
+        this.apiService = new ApiService(this.apiKey);
 
         this.elements = this.initializeElements();
         this.uiManager = new UIManager(this.elements);
