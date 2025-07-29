@@ -952,7 +952,7 @@ class HotelMapApp {
 
     async loadCategoryMapping() {
         try {
-            const response = await fetch('https://elinevstr.github.io/3D-Hotels/placeCategories.json');
+            const response = await fetch('placecategories.json');
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
             this.categoryMappings = await response.json();
