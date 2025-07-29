@@ -112,9 +112,9 @@ class ApiService {
     }
 
     async fetchWithRetry(url, options, maxRetries = CONFIG.MAX_RETRIES, useCache = true) {
+        console.log(useCache)
         const cacheKey = this.cache.generateKey(url, options?.body);
 
-        // ✅ Check cache first
         if (useCache) {
             const cached = this.cache.get(cacheKey);
             if (cached) {
@@ -126,33 +126,20 @@ class ApiService {
         for (let i = 0; i < maxRetries; i++) {
             try {
                 const response = await fetch(url, options);
+                if (response.ok) {
+                    const data = await response.json();
 
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    if (useCache) {
+                        const cacheKey = this.cache.generateKey(url, options?.body);
+                        this.cache.set(cacheKey, data);
+                    }
+
+                    return data;
                 }
-
-                const data = await response.json();
-
-                const isValid = data && Object.keys(data).length > 0;
-
-                if (useCache && isValid) {
-                    this.cache.set(cacheKey, data);
-                } else if (useCache && !isValid) {
-                    this.cache.delete(cacheKey);
-                    Logger.debug('Removed invalid response from cache:', url);
-                }
-
-                return data;
-
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             } catch (error) {
                 Logger.error(`API call failed (attempt ${i + 1}/${maxRetries})`, error);
-                if (i === maxRetries - 1) {
-                    if (useCache) {
-                        this.cache.delete(cacheKey);
-                    }
-                    throw error;
-                }
-
+                if (i === maxRetries - 1) throw error;
                 await Utils.delay(CONFIG.RETRY_DELAY * Math.pow(2, i));
             }
         }
@@ -334,7 +321,8 @@ class ApiService {
                 }
             },
                 CONFIG.MAX_RETRIES,
-                false);
+                false
+            );
 
             const cleanedData = data.candidates[0].content.parts[0].text
                 .replace(/^```json\s*/, '')
