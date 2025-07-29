@@ -9,158 +9,131 @@
     />
   </head>
   <body>
+ 
     <div class="expanded" id="main-header">
-      <div class="fullscreen-inner">
-        <div id="banner">
-      <img src="imgs/roamly-logo.png" id="logo" alt="logo"loading="lazy"/></div>
-      <div id="card-container">
-            <button onclick="hotelMapApp.gotopresetplace('Food & Drink', 'Culture & History', {formattedAddress: 'Rome, Italy', location: { lat: 41.899858512899556, lng: 12.480297389326685}})" id="rome-card"> 
-                <div class="card">
-                   <div class="circle-wrapper">
-                      <img src="imgs/rome.jpg" alt="Travel App Demo" class="card-image" loading="lazy"/>
-                      <p class="arc-text arc-top">Food and History</p>
-                      <p class="arc-text arc-bottom">in Rome</p>
+        <div class="fullscreen-inner">
+            <div id="banner">
+                <img src="imgs/roamly-logo.png" id="logo" alt="Roamly Travel App Logo" loading="lazy"/>
+            </div>
+            <div id="card-container">
+                <button data-destination="rome" id="rome-card" class="destination-card"> 
+                    <div class="card">
+                        <div class="circle-wrapper">
+                            <img src="imgs/rome.jpg" alt="Rome, Italy - Food and History" class="card-image" loading="lazy"/>
+                            <p class="arc-text arc-top">Food and History</p>
+                            <p class="arc-text arc-bottom">in Rome</p>
+                        </div>
                     </div>
-                </div>
-              </button>
-            <button onclick="hotelMapApp.gotopresetplace('Shopping', 'Food & Drink', {formattedAddress: 'New York City, USA', location: { lat: 40.730545330157916, lng: -73.99633893659198}})" id="ny-card"> 
-                <div class="card">
-                  <div class="circle-wrapper">
-
-                    <img src="imgs/new-york.jpg" alt="Travel App Demo" class="card-image" loading="lazy"/>
-               
-                    <p class="arc-text arc-top">Nightlife and Food</p>
-                    <p class="arc-text arc-bottom"> in New York City</p>
-                 </div>
-                </div>
-              </button>
-               
-                 <button onclick="hotelMapApp.gotopresetplace('Relaxation & Wellness', 'Nature & Outdoors', {formattedAddress: 'Zermatt, Switzerland', location: { lat: 46.022801356552414, lng: 7.7520209377576075} })" id="swiss-card"> 
-                <div class="card">
-                  <div class="circle-wrapper">
-
-                  <img src="imgs/zermatt.jpg" alt="Travel App Demo" class="card-image" loading="lazy"/>
-              
-                    <p class="arc-text arc-top"> Nature and Wellness</p>
-                    <p class="arc-text arc-bottom">in the Swiss mountains</p>
-                  </div>
-                </div>
-              </button>
-            <button onclick="hotelMapApp.gotopresetplace('Shopping', 'Entertainment & Nightlife', {formattedAddress: 'Tokyo, Japan', location: {lat: 35.681762113399564, lng: 139.7559647472117}})" id="tokyo-card"> 
-                <div class="card">
-                <div class="circle-wrapper">
-
-                <img src="imgs/tokyo.jpg" alt="Travel App Demo" class="card-image" loading="lazy"/>
-                
-                    <p class="arc-text arc-top">Shopping and Entertainment</p>
-                    <p class="arc-text arc-bottom">in Tokyo</p>
-                  </div>  
-                </div>
-        </button>
-         <button onclick="hotelMapApp.gotorandomplace()" id="random-card"> 
-                <div class="card">
-                <div class="circle-wrapper">
-                <img src="imgs/randomlocation.png" alt="Travel App Demo" class="card-image" loading="lazy"/>
-                
-                    <p class="arc-text arc-top">Surprise</p>
-                    <p class="arc-text arc-bottom">location</p>
-                  </div>  
-                </div>
-        </button>
-    
+                </button>
+                <button data-destination="newyork" id="ny-card" class="destination-card"> 
+                    <div class="card">
+                        <div class="circle-wrapper">
+                            <img src="imgs/new-york.jpg" alt="New York City - Nightlife and Food" class="card-image" loading="lazy"/>
+                            <p class="arc-text arc-top">Nightlife and Food</p>
+                            <p class="arc-text arc-bottom">in New York City</p>
+                        </div>
+                    </div>
+                </button>
+                <button data-destination="zermatt" id="swiss-card" class="destination-card"> 
+                    <div class="card">
+                        <div class="circle-wrapper">
+                            <img src="imgs/zermatt.jpg" alt="Zermatt, Switzerland - Nature and Wellness" class="card-image" loading="lazy"/>
+                            <p class="arc-text arc-top">Nature and Wellness</p>
+                            <p class="arc-text arc-bottom">in the Swiss mountains</p>
+                        </div>
+                    </div>
+                </button>
+                <button data-destination="tokyo" id="tokyo-card" class="destination-card"> 
+                    <div class="card">
+                        <div class="circle-wrapper">
+                            <img src="imgs/tokyo.jpg" alt="Tokyo, Japan - Shopping and Entertainment" class="card-image" loading="lazy"/>
+                            <p class="arc-text arc-top">Shopping and Entertainment</p>
+                            <p class="arc-text arc-bottom">in Tokyo</p>
+                        </div>
+                    </div>
+                </button>
+                <button data-destination="random" id="random-card" class="destination-card"> 
+                    <div class="card">
+                        <div class="circle-wrapper">
+                            <img src="imgs/randomlocation.png" alt="Random surprise destination" class="card-image" loading="lazy"/>
+                            <p class="arc-text arc-top">Surprise</p>
+                            <p class="arc-text arc-bottom">location</p>
+                        </div>
+                    </div>
+                </button>
+            </div>
         </div>
-        </div>
-      <div id="dropdown-container" >
-        <img src="imgs/roamly-logo.png" id="dropdown-logo" alt="logo"loading="lazy"/>
-        <p>I want to go to</p>
-        <div class="place-autocomplete-card" id="place-autocomplete-card"></div>
+        
+        <div id="dropdown-container">
+            <img src="imgs/roamly-logo.png" id="dropdown-logo" alt="Roamly Logo" loading="lazy"/>
+            <p>I want to go to</p>
+            <div class="place-autocomplete-card" id="place-autocomplete-card" role="search"></div>
 
-        <label for="category-dropdown-1">And I prefer </label>
-        <select id="category-dropdown-1" class="category-dropdown"></select>
+            <label for="category-dropdown1">And I prefer</label>
+            <select id="category-dropdown1" class="category-dropdown" aria-label="First preference category"></select>
 
-        <label for="category-dropdown-2"> and </label>
-        <select id="category-dropdown-2" class="category-dropdown"></select>
-        <button id="gobutton">Search</button>
-      </div>
-       </div>
-      <!--  <div class="header-title">
-            <span class="header-icon">✈️</span> LOCALYSE TRAVEL APP
+            <label for="category-dropdown2">and</label>
+            <select id="category-dropdown2" class="category-dropdown" aria-label="Second preference category"></select>
+            
+            <button id="gobutton" type="button" aria-label="Search for hotels and attractions">Search</button>
         </div>
-   
-        <nav class="header-menu">
-            <a href="#home" class="menu-item">Home</a>
-            <a href="#explore" class="menu-item">Explore</a>
-            <a href="#saved" class="menu-item">Saved Trips</a>
-            <button class="menu-item menu-button">Login</button>
-        </nav>-->
     </div>
 
-    <div class="main-container">
-      <div class="content">
-        <div id="map" style="display: none;"></div>
-        <div id="weather-info" class="weather-info-box"></div>
-         <button  id="reset-camera-button" onclick="hotelMapApp.resetCamera()" style="display: none;">Reset camera</button>
-        <div id="sponsored-popup" class="sponsored-popup">
-          <button
-            class="close-btn"
-            onclick="document.getElementById('sponsored-popup').style.display = 'none'"
-          >
-            ✖
-          </button>
-          <h3 id="sponsored-hotel-name"></h3>
-          <div id="sponsored-activities-container"></div>
-        </div>
-      </div>
+    <main class="main-container">
+        <section class="content" aria-label="Map and location details">
+            <div id="map" style="display: none;" role="application" aria-label="Interactive 3D map"></div>
+            <div id="overlay-container">
+                <div id="public-transport-info" style="display:none; align-items:center; gap: 6px; margin-top: 8px;">
+              <p>🚉 <span id="public-transport-count">0</span> public transport stops within 100 metres.</p>
+            </div>
+            <div id="weather-info" class="weather-info-box" aria-live="polite"></div>
+           
+          </div>
+            <button id="reset-camera-button" style="display: none;" type="button" aria-label="Reset camera view">Reset camera</button>
+            
+            <!-- Improved popup with better accessibility -->
+            <div id="detail-popup" class="detail-popup" role="dialog" aria-labelledby="sponsored-hotel-name" aria-hidden="true">
+                <button class="close-btn" type="button" aria-label="Close popup">✖</button>
+                <div id="detail-popup-container" aria-live="polite"></div>
+            </div>
+        </section>
 
-      <div class="sidebar">
-        <div id="button-container">
-        <button
-          id="back-to-all-hotels-button"
-          class="sidebar-button"
-          style="display: none"
-          onclick="hotelMapApp.backToAllHotels()"
-        >
-          Back
-        </button>
-           <button
-          id="back-to-hotel-button"
-          class="sidebar-button"
-          style="display: none"
-          onclick="hotelMapApp.backToHotel()"
-        >
-          Back to Hotel
-        </button>
-        <button
-          id="gen-route-button"
-          class="sidebar-button"
-          style="display: none"
-          onclick="hotelMapApp.AIWalkingRoute()"
-        >
-          Generate walking route
-        </button>
-        </div>
-        <div id="ai-route-loading" style="display: none; padding: 20px; font-size: 16px;">
-          <div id="loading-steps-container"></div>
-        </div>
+        <aside class="sidebar" role="complementary" aria-label="Hotel listings and controls">
+            <div id="button-container" role="toolbar" aria-label="Navigation controls">
+                <button id="back-to-all-hotels-button" class="sidebar-button" style="display: none" type="button">
+                    Back to Hotels
+                </button>
+                <button id="back-to-hotel-button" class="sidebar-button" style="display: none" type="button">
+                    Back to Hotel
+                </button>
+                <button id="gen-route-button" class="sidebar-button" style="display: none" type="button">
+                    Generate walking route
+                </button>
+            </div>
+            
+            <!-- Loading state with better UX -->
+            <div id="ai-route-loading" style="display: none;" role="status" aria-live="polite">
+                <div id="loading-steps-container" aria-label="Loading progress"></div>
+            </div>
 
-        <div id="ai-route-container" style="display: none;">
-          <div id="ai-route-summary"></div>
-          <div id="ai-route-stops"></div>
-        </div>
-          <h3 id="location-title"></h3>
-          <p id="location-subtitle"></p>
+            <!-- Route results -->
+            <div id="ai-route-container" style="display: none;" role="region" aria-labelledby="ai-route-summary">
+                <div id="ai-route-summary"></div>
+                <div id="ai-route-stops" role="list" aria-label="Route stops"></div>
+            </div>
+            
+            <h3 id="location-title" aria-live="polite"></h3>
+            <p id="location-subtitle" aria-live="polite"></p>
+           
+            <div class="list-container">
+                <gmp-place-search orientation="vertical" selectable role="listbox" aria-label="Hotel search results">
+                    <gmp-place-all-content></gmp-place-all-content>
+                    <gmp-place-text-search-request></gmp-place-text-search-request>
+                </gmp-place-search>
 
-        <div class="list-container">
-       
-          <gmp-place-search orientation="vertical" selectable>
-            <gmp-place-all-content> </gmp-place-all-content>
-            <gmp-place-text-search-request></gmp-place-text-search-request>
-          </gmp-place-search>
-    
-
-        <gmp-place-details style="display: none" >
-          <gmp-place-details-place-request></gmp-place-details-place-request>
-          <gmp-place-content-config>
+                <gmp-place-details style="display: none" role="region" aria-label="Hotel details">
+                    <gmp-place-details-place-request></gmp-place-details-place-request>
+                    <gmp-place-content-config>
             <gmp-place-address></gmp-place-address>
             <gmp-place-rating></gmp-place-rating>
             <gmp-place-price></gmp-place-price>
@@ -223,7 +196,6 @@
     </script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/circletype@2.3.0/dist/circletype.min.js"></script>
-    <script src="hotels.js"></script>
     <script src="main.js"></script>
     <script>
       $(document).ready(function () {

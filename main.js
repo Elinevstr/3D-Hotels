@@ -1,6 +1,620 @@
+// ===== CONFIG AND CONSTANTS =====
+const CONFIG = {
+    SEARCH_RADIUS: 3000,
+    PT_RADIUS: 200, //public transport 
+
+    MAX_RESULTS: 20,
+    ANIMATION_DURATION: 3000,
+    CAMERA_RANGES: {
+        OVERVIEW: 8000,
+        DETAIL: 4000,
+        CLOSE_UP: 250,
+        SUPER_OVERVIEW: 50000000
+    },
+    DEBOUNCE_DELAY: 300,
+    MAX_RETRIES: 3,
+    RETRY_DELAY: 1000
+};
+
+// ===== UTILITY FUNCTIONS =====
+class Utils {
+    static debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    static delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    static validateLocation(location) {
+        if (
+            !location ||
+            !((typeof location.lat === 'number' && typeof location.lng === 'number') || (typeof location.latitude === 'number' && typeof location.longitude === 'number'))
+        ) {
+            throw new Error('Invalid location data');
+        }
+        if (Math.abs(location.lat) > 90 || Math.abs(location.lng) > 180) {
+            throw new Error('Location coordinates out of range');
+        }
+    }
+
+    static createBoundsFromCenterAndRadius(center, radiusMeters) {
+        const diagonal = radiusMeters * Math.sqrt(2);
+        const ne = google.maps.geometry.spherical.computeOffset(center, diagonal, 45);
+        const sw = google.maps.geometry.spherical.computeOffset(center, diagonal, 225);
+        return new google.maps.LatLngBounds(sw, ne);
+    }
+}
+
+// ===== LOGGING SYSTEM =====
+class Logger {
+    static debug(message, data = '') {
+        console.log(`[DEBUG] ${message}`, data);
+    }
+
+    static error(message, error = '') {
+        console.error(`[ERROR] ${message}`, error);
+    }
+
+    static info(message, data = '') {
+        console.log(`[INFO] ${message}`, data);
+    }
+}
+
+// ===== API SERVICE =====
+class ApiService {
+    constructor(apiKey, elevationKey) {
+        this.apiKey = apiKey;
+        this.elevationKey = elevationKey;
+    }
+
+    async fetchWithRetry(url, options, maxRetries = CONFIG.MAX_RETRIES) {
+        for (let i = 0; i < maxRetries; i++) {
+            try {
+                const response = await fetch(url, options);
+                if (response.ok) {
+                    return await response.json();
+                }
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            } catch (error) {
+                Logger.error(`API call failed (attempt ${i + 1}/${maxRetries})`, error);
+                if (i === maxRetries - 1) throw error;
+                await Utils.delay(CONFIG.RETRY_DELAY * Math.pow(2, i));
+            }
+        }
+    }
+
+    async calculateRoute(origin, destination, intermediates = []) {
+        Utils.validateLocation(origin);
+        Utils.validateLocation(destination);
+
+        const requestBody = {
+            origin: {
+                location: {
+                    latLng: {
+                        latitude: origin.lat,
+                        longitude: origin.lng
+                    }
+                }
+            },
+            destination: {
+                location: {
+                    latLng: {
+                        latitude: destination.lat || destination.latitude,
+                        longitude: destination.lng || destination.longitude
+                    }
+                }
+            },
+            travelMode: "WALK",
+            languageCode: "en",
+            units: "METRIC"
+        };
+
+        if (intermediates.length > 0) {
+            requestBody.intermediates = intermediates;
+            requestBody.optimizeWaypointOrder = true;
+        }
+
+        try {
+            const fieldMask = intermediates.length > 0
+                ? "routes.polyline,routes.localizedValues,routes.optimized_intermediate_waypoint_index,routes.viewport"
+                : "routes.polyline,routes.localizedValues";
+
+            return await this.fetchWithRetry("https://routes.googleapis.com/directions/v2:computeRoutes", {
+                method: "POST",
+                body: JSON.stringify(requestBody),
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-Goog-FieldMask": fieldMask,
+                    "X-Goog-Api-Key": this.apiKey
+                }
+            });
+        } catch (error) {
+            Logger.error("Route calculation failed", error);
+            throw new Error("Unable to calculate route. Please try again.");
+        }
+    }
+
+    async searchNearbyPlaces(location, types) {
+        Utils.validateLocation(location);
+
+        const requestBody = {
+            includedTypes: types,
+            excludedTypes: ["hotel", "grocery_store", "supermarket", "bus_station", "train_station", "transit_station"],
+            maxResultCount: CONFIG.MAX_RESULTS,
+            rankPreference: "POPULARITY",
+            languageCode: "en",
+            locationRestriction: {
+                circle: {
+                    center: { latitude: location.lat, longitude: location.lng },
+                    radius: CONFIG.SEARCH_RADIUS
+                }
+            }
+        };
+
+        try {
+            return await this.fetchWithRetry("https://places.googleapis.com/v1/places:searchNearby", {
+                method: "POST",
+                body: JSON.stringify(requestBody),
+                headers: {
+                    "Content-type": "application/json",
+                    "X-Goog-FieldMask": "places.id,places.displayName,places.location,places.iconMaskBaseUri,places.primaryTypeDisplayName",
+                    "X-Goog-Api-Key": this.apiKey
+                }
+            });
+        } catch (error) {
+            Logger.error("Nearby places search failed", error);
+            throw new Error("Unable to find nearby places. Please try again.");
+        }
+    }
+
+    async getElevation(lat, lng) {
+        Utils.validateLocation({ lat, lng });
+
+        const url = `https://maps.googleapis.com/maps/api/elevation/json?locations=${lat}%2C${lng}&key=${this.elevationKey}`;
+
+        try {
+            const data = await this.fetchWithRetry(url);
+            return data?.results?.[0]?.elevation || 0;
+        } catch (error) {
+            Logger.error("Elevation fetch failed", error);
+            return 0;
+        }
+    }
+
+    async getWeatherInfo(location) {
+        Utils.validateLocation(location);
+
+        const url = `https://weather.googleapis.com/v1/currentConditions:lookup?key=${this.apiKey}&location.latitude=${location.lat}&location.longitude=${location.lng}`;
+
+        try {
+            return await this.fetchWithRetry(url);
+        } catch (error) {
+            Logger.error("Weather fetch failed", error);
+            return null;
+        }
+    }
+
+    async getPublicTransport(location) {
+        console.log(location)
+        Utils.validateLocation(location);
+        const requestBody = {
+            insights: [
+                "INSIGHT_COUNT"
+            ],
+            filter: {
+                locationFilter: {
+                    circle: {
+                        latLng: { latitude: location.lat, longitude: location.lng },
+                        radius: CONFIG.PT_RADIUS
+                    }
+                },
+                typeFilter: {
+                    includedTypes: [
+                        "subway_station", "bus_station", "train_station", "transit_station", "light_rail_station"
+                    ]
+                },
+            }
+        }
+        try {
+            return await this.fetchWithRetry("https://areainsights.googleapis.com/v1:computeInsights", {
+                method: "POST",
+                body: JSON.stringify(requestBody),
+                headers: {
+                    "Content-type": "application/json",
+                    "X-Goog-Api-Key": this.apiKey
+                }
+            });
+        } catch (error) {
+            Logger.error("Nearby places search failed", error);
+            throw new Error("Unable to find nearby places. Please try again.");
+        }
+    }
+
+    async generateAIRoute(nearbyPlaces, categories) {
+        const requestBody = {
+            "contents": [{
+                "parts": [{
+                    "text": `Based on the following list of places and their types, could you generate a JSON object for each stop and describe the stop? You don't need to use all stops, just the ones that are the most interesting based on the ${categories.category1.short} and ${categories.category2.short} as interests. also return in JSON a short summary title and description of the whole route. The list of location is the following: ${JSON.stringify(nearbyPlaces)}. The resulting JSON object should look like: {route_description: string, route_title:string, stops[{name:string,type:string,placeId: string, location: {lat:number,lng:number}, description:string}]}]}`
+                }]
+            }]
+        };
+
+        try {
+            const data = await this.fetchWithRetry("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent", {
+                method: "POST",
+                body: JSON.stringify(requestBody),
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-Goog-Api-Key": this.apiKey
+                }
+            });
+
+            const cleanedData = data.candidates[0].content.parts[0].text
+                .replace(/^```json\s*/, '')
+                .replace(/```$/, '')
+                .trim();
+
+            return JSON.parse(cleanedData);
+        } catch (error) {
+            Logger.error("AI route generation failed", error);
+            throw new Error("Failed to generate AI route. Please try again.");
+        }
+    }
+}
+
+// ===== UI MANAGER =====
+class UIManager {
+    constructor(elements) {
+        this.elements = elements;
+    }
+
+    showLoadingState(message) {
+        Logger.info("Loading state:", message);
+    }
+
+    hideLoadingState() {
+        Logger.info("Loading state hidden");
+    }
+
+    showErrorState(message) {
+        Logger.error("Error state:", message);
+        // Could show a toast or modal here
+    }
+
+    showUserError(message) {
+        alert(message); // Replace with better UI notification
+    }
+
+    animateHeader() {
+        this.elements.map.style.display = 'block';
+        this.elements.placeList.style.display = 'block';
+        const header = document.getElementById('main-header');
+        const dropdown = document.getElementById('dropdown-container');
+
+        dropdown.classList.remove('no-transition');
+        header.classList.remove('expanded');
+        dropdown.classList.add('slide-up');
+
+        setTimeout(() => {
+            document.getElementById('card-container').style.display = 'none';
+            document.getElementById('logo').style.display = 'none';
+            document.getElementById('dropdown-logo').style.display = 'block';
+            header.classList.add('slide-back');
+            dropdown.classList.remove('slide-up');
+            dropdown.classList.add('slide-back');
+        }, 2000);
+    }
+
+    displayHotelDetails(placeId) {
+        this.elements.genRouteButton.style.display = 'block';
+        this.elements.placeList.style.display = 'none';
+        this.elements.placeDetails.style.display = 'block';
+        this.elements.placeDetailsRequest.place = placeId;
+        this.elements.backToAllHotelsButton.style.display = 'block';
+    }
+
+    showWeatherInfo(weather) {
+        console.log(this.elements)
+        const box = this.elements.weatherInfo;
+        box.innerHTML = '';
+        box.style.display = 'none';
+
+        if (weather?.temperature?.degrees !== undefined && weather.weatherCondition) {
+            const temp = weather.temperature.degrees;
+            box.innerHTML = `
+                <img src="${weather.weatherCondition.iconBaseUri}.svg" alt="${weather.weatherCondition.condition}">
+                <span> ${temp}°C</span>
+            `;
+            box.style.display = 'inline-flex';
+        }
+    }
+
+    displayLoadingSteps() {
+        const loadingSteps = [
+            { emoji: "🔍", text: "Looking for the best places..." },
+            { emoji: "🧠", text: "Asking our travel expert..." },
+            { emoji: "🗺️", text: "Drawing your custom route..." },
+            { emoji: "✨", text: "Almost there..." }
+        ];
+
+        const container = this.elements.loadingStepsContainer;
+        container.innerHTML = "";
+
+        let stepIndex = 0;
+        const stepEls = [];
+
+        const createStepElement = (step, isActive) => {
+            const el = document.createElement("p");
+            el.className = "loading-step";
+            if (isActive) {
+                el.innerHTML = `<span class="spinner"></span> ${step.text}`;
+            } else {
+                el.innerHTML = `${step.emoji} ${step.text}`;
+            }
+            return el;
+        };
+
+        // Add first step immediately
+        const firstStepEl = createStepElement(loadingSteps[0], true);
+        container.appendChild(firstStepEl);
+        stepEls.push(firstStepEl);
+
+        const interval = setInterval(() => {
+            stepIndex++;
+
+            // Replace spinner in previous step
+            const prev = stepEls[stepIndex - 1];
+            if (prev) {
+                const step = loadingSteps[stepIndex - 1];
+                prev.innerHTML = `${step.emoji} ${step.text}`;
+            }
+
+            // Add new step (with spinner) unless it's beyond the list
+            if (stepIndex < loadingSteps.length) {
+                const newStepEl = createStepElement(loadingSteps[stepIndex], true);
+                container.appendChild(newStepEl);
+                stepEls.push(newStepEl);
+            }
+
+            // Stop at the last step — spinner stays on
+            if (stepIndex >= loadingSteps.length - 1) {
+                clearInterval(interval);
+            }
+        }, 4000);
+
+        // Expose a cleanup function for when the API is done
+        return () => {
+            const lastIndex = loadingSteps.length - 1;
+            const lastEl = stepEls[lastIndex];
+            if (lastEl) {
+                lastEl.innerHTML = `${loadingSteps[lastIndex].emoji} ${loadingSteps[lastIndex].text}`;
+            }
+        };
+    }
+    showPublicTransportInfo(count) {
+        const { publicTransportInfo, publicTransportCount } = this.elements;
+        if (count > 0) {
+            publicTransportCount.textContent = `${count}`;
+            publicTransportInfo.style.display = 'inline-flex';
+        } else {
+            publicTransportInfo.style.display = 'none';
+        }
+    }
+}
+
+// ===== MAP MANAGER =====
+class MapManager {
+    constructor(apiService, uiManager) {
+        this.apiService = apiService;
+        this.uiManager = uiManager;
+        this.map3D = null;
+        this.library = {};
+        this.groundElevation = 0;
+    }
+
+    async initialize() {
+        try {
+            const [
+                { Map, LatLngBounds },
+                { Marker3DInteractiveElement, Map3DElement, MapMode, AltitudeMode, Polyline3DElement },
+                { PinElement },
+                { encoding },
+                { PlaceAutocompleteElement }
+            ] = await Promise.all([
+                google.maps.importLibrary("maps"),
+                google.maps.importLibrary("maps3d"),
+                google.maps.importLibrary("marker"),
+                google.maps.importLibrary("geometry"),
+                google.maps.importLibrary("places")
+            ]);
+
+            this.library = {
+                Map, LatLngBounds, Marker3DInteractiveElement, Map3DElement,
+                MapMode, AltitudeMode, Polyline3DElement, PinElement, encoding,
+                PlaceAutocompleteElement
+            };
+
+            await this.initializeMap();
+            Logger.info("Map initialized successfully");
+        } catch (error) {
+            Logger.error("Failed to initialize map", error);
+            throw error;
+        }
+    }
+
+    async initializeMap() {
+        const { Map3DElement } = this.library;
+        this.map3D = new Map3DElement({
+            center: { lat: 34.8405, lng: -111.7909, altitude: 1322.70 },
+            range: CONFIG.CAMERA_RANGES.SUPER_OVERVIEW,
+            tilt: 0,
+            mode: 'SATELLITE'
+        });
+
+        const mapElement = document.getElementById('map');
+        mapElement.appendChild(this.map3D);
+
+        Object.assign(this.map3D.style, {
+            borderRadius: "10px",
+            width: "100%",
+            height: "100%"
+        });
+    }
+
+    async setCamera(lat, lng, alt, tilt, range, rotateCamera = false) {
+        Utils.validateLocation({ lat, lng });
+
+        const flyOptions = {
+            endCamera: {
+                center: { lat, lng, altitude: alt },
+                range,
+                tilt,
+                heading: 0
+            },
+            durationMillis: CONFIG.ANIMATION_DURATION
+        };
+
+        const onAnimationEnd = () => {
+            if (rotateCamera) {
+                this.map3D.flyCameraAround({
+                    camera: { center: { lat, lng, altitude: alt }, tilt, range, heading: 0 },
+                    durationMillis: 50000,
+                    rounds: 1
+                });
+            }
+        };
+
+        this.map3D.removeEventListener('gmp-animationend', onAnimationEnd);
+        this.map3D.addEventListener('gmp-animationend', onAnimationEnd, { once: true });
+        this.map3D.flyCameraTo(flyOptions);
+    }
+}
+
+// ===== MARKER MANAGER =====
+class MarkerManager {
+    constructor(mapManager, apiService) {
+        this.mapManager = mapManager;
+        this.apiService = apiService;
+        this.activeMarker = null;
+        this.activeFeatureMarker = null;
+        this.nearbyMarkers = [];
+        this.hotelMarkers = [];
+        this.routeMarkers = [];
+        this.activePolylines = new Map();
+        this.routePolylines = [];
+        this.activeCenterMarkers = new Map();
+    }
+
+    async createHotelMarker(hotel) {
+        const { Marker3DInteractiveElement, PinElement } = this.mapManager.library;
+
+        const pin = new PinElement({
+            scale: 1.4,
+            background: '#8292E7',
+            glyphColor: "#2E49D6",
+            borderColor: "#2E49D6"
+        });
+
+        const marker = new Marker3DInteractiveElement({
+            position: {
+                lat: hotel.location.lat,
+                lng: hotel.location.lng,
+            },
+            altitudeMode: "RELATIVE_TO_MESH",
+            collisionBehavior: google.maps.CollisionBehavior.REQUIRED,
+            extruded: false
+        });
+
+        marker.append(pin);
+        this.mapManager.map3D.append(marker);
+        return marker;
+    }
+
+    removeSpecificRoute(markerId) {
+        const polyline = this.activePolylines.get(markerId);
+        const centerMarker = this.activeCenterMarkers.get(markerId);
+        if (polyline) this.mapManager.map3D.removeChild(polyline);
+        if (centerMarker) this.mapManager.map3D.removeChild(centerMarker);
+        this.activePolylines.delete(markerId);
+        this.activeCenterMarkers.delete(markerId);
+    }
+
+    clearAllMarkers() {
+        [...this.nearbyMarkers, ...this.hotelMarkers, ...this.routeMarkers].forEach(marker => {
+            try {
+                marker.remove();
+            } catch (error) {
+                Logger.error("Error removing marker", error);
+            }
+        });
+
+        this.nearbyMarkers.length = 0;
+        this.hotelMarkers.length = 0;
+        this.routeMarkers.length = 0;
+
+        if (this.activeMarker) {
+            try {
+                this.activeMarker.remove();
+            } catch (error) {
+                Logger.error("Error removing active marker", error);
+            }
+            this.activeMarker = null;
+        }
+    }
+
+    clearAllRoutes() {
+        this.activePolylines.forEach(polyline => {
+            try {
+                this.mapManager.map3D.removeChild(polyline);
+            } catch (error) {
+                Logger.error("Error removing polyline", error);
+            }
+        });
+        this.activePolylines.clear();
+
+        this.routePolylines.forEach(polyline => {
+            try {
+                polyline.remove();
+            } catch (error) {
+                Logger.error("Error removing route polyline", error);
+            }
+        });
+        this.routePolylines.length = 0;
+    }
+}
+
+// ===== MAIN APPLICATION CLASS =====
 class HotelMapApp {
     constructor() {
-        this.randomdest = [
+        // SECURITY NOTE: In production, these should come from environment variables
+        // and API calls should be proxied through your backend
+        this.apiKey = "AIzaSyCVNX6mCprAYiGp8RUaf9yc6H-00fLR1Ns";
+        this.elevationKey = "AIzaSyCCThoiMgZnmvLy0Nc2AeITEkNjE6dSlps";
+
+        this.apiService = new ApiService(this.apiKey, this.elevationKey);
+
+        this.elements = this.initializeElements();
+        this.uiManager = new UIManager(this.elements);
+        this.mapManager = new MapManager(this.apiService, this.uiManager);
+        this.markerManager = new MarkerManager(this.mapManager, this.apiService);
+
+        this.selectedPlace = null;
+        this.selecteDestination = null;
+        this.selectedCategories = {};
+        this.nearbyPlaces = [];
+        this.categoryMappings = {};
+        this.routeStops = [];
+
+        this.randomDestinations = [
             {
                 location: { formattedAddress: 'Paris, France', location: { lat: 48.85734310966265, lng: 2.342754204908419 } },
                 category1: "Food & Drink",
@@ -61,155 +675,270 @@ class HotelMapApp {
                 category1: "Nature & Outdoors",
                 category2: "Food & Drink"
             },
-        ]
-        this.map3D = null;
-        this.activeMarker = null;
-        this.nearbyMarkers = [];
-        this.nearbyPlaces = [];
-        this.activePolylines = new Map();
-        this.routePolylines = [];
-        this.activeCenterMarkers = new Map();
-        this.selectedPlace = null;
-        this.RouteMarkers = [];
-        this.hotelMarkers = [];
-        this.categoryMappings = {};
-        this.groundElevation = 0;
-        this.apiKey = "AIzaSyCVNX6mCprAYiGp8RUaf9yc6H-00fLR1Ns"; // Replace with your key
-        this.elevationKey = "AIzaSyCCThoiMgZnmvLy0Nc2AeITEkNjE6dSlps"
-
-        this.library = {}; // will store all imported modules
-
-        this.elements = {
-            loadingEl: document.getElementById("ai-route-loading"),
-            loadingContainer: document.getElementById("loading-steps-container"),
-            routeContainer: document.getElementById("ai-route-container"),
-            summaryEl: document.getElementById("ai-route-summary"),
-            stopsEl: document.getElementById("ai-route-stops"),
-            placeList: document.querySelector("gmp-place-search"),
-            placeDetails: document.querySelector("gmp-place-details"),
-            placeDetailsRequest: document.querySelector("gmp-place-details-place-request"),
-            hotelList: document.getElementById("hotel-list"),
-            loadingOverlay: document.getElementById("loading-overlay"),
-            sponsoredPopup: document.getElementById("sponsored-popup"),
-            sponsoredContainer: document.getElementById("sponsored-activities-container"),
-            sponsoredTitle: document.getElementById("sponsored-hotel-name"),
-            weatherBox: document.getElementById("weather-info"),
-            backToAllHotels: document.getElementById("back-to-all-hotels-button"),
-            backToHotel: document.getElementById("back-to-hotel-button"),
-            genRoute: document.getElementById("gen-route-button"),
-            sidebar: document.getElementById("sidebar"),
-            gobutton: document.getElementById("gobutton"),
-            resetcamerabutton: document.getElementById("reset-camera-button"),
-            map: document.getElementById("map"),
-            categoryDropdown1: document.getElementById("category-dropdown-1"),
-            categoryDropdown2: document.getElementById("category-dropdown-2"),
-            locationTitle: document.getElementById("location-title"),
-            locationsubTitle: document.getElementById("location-subtitle")
-        };
+        ];
 
         this.init();
     }
-    createBoundsFromCenterAndRadius(center, radiusMeters) {
-        const diagonal = radiusMeters * Math.sqrt(2);
-        const ne = google.maps.geometry.spherical.computeOffset(center, diagonal, 45);
-        const sw = google.maps.geometry.spherical.computeOffset(center, diagonal, 225);
-        return new google.maps.LatLngBounds(sw, ne);
-    };
+
+    initializeElements() {
+        const elementIds = [
+            'ai-route-loading', 'loading-steps-container', 'ai-route-container',
+            'ai-route-summary', 'ai-route-stops', 'hotel-list', 'loading-overlay',
+            'detail-popup', 'detail-popup-container',
+            'weather-info', 'back-to-all-hotels-button', 'back-to-hotel-button',
+            'gen-route-button', 'sidebar', 'gobutton', 'reset-camera-button',
+            'map', 'category-dropdown1', 'category-dropdown2',
+            'location-title', 'location-subtitle', 'public-transport-info', 'public-transport-count'
+        ];
+
+        const elements = {};
+        elementIds.forEach(id => {
+            const camelCase = id.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+            elements[camelCase] = document.getElementById(id);
+        });
+        console.log(elements)
+        // Add querySelector elements
+        elements.placeList = document.querySelector("gmp-place-search");
+        elements.placeDetails = document.querySelector("gmp-place-details");
+        elements.placeDetailsRequest = document.querySelector("gmp-place-details-place-request");
+
+        return elements;
+    }
+
     async init() {
         try {
-            // Preload libraries
-            //@ts-ignore
-            const [
-                { Map, LatLngBounds },
-                { Marker3DInteractiveElement, Map3DElement, MapMode, AltitudeMode, Polyline3DElement },
-                { PinElement },
-                { encoding },
-                { PlaceAutocompleteElement }
-            ] = await Promise.all([
-                google.maps.importLibrary("maps"),
-                google.maps.importLibrary("maps3d"),
-                google.maps.importLibrary("marker"),
-                google.maps.importLibrary("geometry"),
-                google.maps.importLibrary("places")
-            ]);
-
-            this.library = {
-                Map,
-                LatLngBounds,
-                Marker3DInteractiveElement,
-                Map3DElement,
-                MapMode,
-                AltitudeMode,
-                Polyline3DElement,
-                PinElement,
-                encoding,
-                PlaceAutocompleteElement
-            };
-
+            await this.mapManager.initialize();
             await this.setupPlaceAutocomplete();
-            await this.initializeMap();
             await this.loadCategoryMapping();
             this.setupCategoryDropdowns();
+            this.setupEventListeners();
 
-            this.map3D.addEventListener('click', () => {
-                //this.clearAllRoutes();
-                // this.setCamera(this.selectedPlace.location.lat, this.selectedPlace.location.lng, 10, 35, 1000);
-
-            });
-
-
+            Logger.info("Hotel Map App initialized successfully");
         } catch (error) {
-            console.error("Failed to initialize app:", error);
+            Logger.error("Failed to initialize app", error);
+            this.uiManager.showErrorState("Failed to initialize the application");
         }
     }
+
     async loadCategoryMapping() {
         try {
             const response = await fetch('placeCategories.json');
-            if (!response.ok) throw new Error("Failed to load category mappings");
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
             this.categoryMappings = await response.json();
-            console.log(this.categoryMappings)
+            Logger.info("Category mappings loaded successfully");
         } catch (error) {
-            console.error("Error loading category mappings:", error);
+            Logger.error("Error loading category mappings", error);
             this.categoryMappings = {};
         }
     }
 
-    async initializeMap() {
-        const { Map3DElement } = this.library;
-        this.map3D = new Map3DElement({
-            center: { lat: 34.8405, lng: -111.7909, altitude: 1322.70 }, range: 50000000, tilt: 0,
-            mode: 'SATELLITE'
+    setupEventListeners() {
+        // Main search button
+        this.elements.gobutton.addEventListener('click', () => this.handleGoButton());
+
+        // Navigation buttons
+        this.elements.backToAllHotelsButton.addEventListener('click', () => this.backToAllHotelsButton());
+        this.elements.backToHotelButton.addEventListener('click', () => this.backToHotelButton());
+        this.elements.genRouteButton.addEventListener('click', () => this.generateAIWalkingRoute());
+        this.elements.resetCameraButton.addEventListener('click', () => this.resetCamera());
+
+        // Destination cards from HTML
+        document.addEventListener('click', (event) => {
+            if (event.target.closest('.destination-card')) {
+                const card = event.target.closest('.destination-card');
+                const destination = card.getAttribute('data-destination');
+                this.handleDestinationCard(destination);
+            }
         });
-        this.elements.map.appendChild(this.map3D);
-        this.map3D.style.borderRadius = "10px";
-        this.map3D.style.width = "100%";
-        this.map3D.style.height = "100%";
 
+        // Close popup
+        const closeBtn = document.querySelector('#detail-popup .close-btn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                this.elements.detailPopup.style.display = 'none';
+            });
+        }
 
-        console.log("3D Map initialized");
+        // Debounced search for better performance
+        this.debouncedSearch = Utils.debounce(
+            this.searchNearbyFeatures.bind(this),
+            CONFIG.DEBOUNCE_DELAY
+        );
     }
 
+    handleDestinationCard(destination) {
+        const destinationMap = {
+            'rome': {
+                location: { formattedAddress: 'Rome, Italy', location: { lat: 41.9028, lng: 12.4964 } },
+                category1: "Food & Drink",
+                category2: "Culture & History"
+            },
+            'newyork': {
+                location: { formattedAddress: 'New York City, USA', location: { lat: 40.7128, lng: -74.0060 } },
+                category1: "Entertainment & Nightlife",
+                category2: "Food & Drink"
+            },
+            'zermatt': {
+                location: { formattedAddress: 'Zermatt, Switzerland', location: { lat: 46.0207, lng: 7.7491 } },
+                category1: "Nature & Outdoors",
+                category2: "Relaxation & Wellness"
+            },
+            'tokyo': {
+                location: { formattedAddress: 'Tokyo, Japan', location: { lat: 35.6762, lng: 139.6503 } },
+                category1: "Shopping",
+                category2: "Entertainment & Nightlife"
+            },
+            'random': null
+        };
+
+        if (destination === 'random') {
+            this.gotoRandomPlace();
+        } else if (destinationMap[destination]) {
+            const dest = destinationMap[destination];
+            this.gotoPresetPlace(dest.category1, dest.category2, dest.location);
+        }
+    }
+
+    async handleGoButton() {
+        if (this.activeMarker) {
+            this.activeMarker.remove();
+            this.activeMarker = null; // <-- Ensure it's cleared
+        }
+        this.elements.aiRouteLoading.innerHTML = ""; // Clear any error message
+        this.elements.aiRouteLoading.style.display = 'none'; // Hide the loader
+        if (!this.selecteDestination) {
+            this.uiManager.showUserError("Please select a destination first.");
+            return;
+        }
+
+        try {
+            await this.gotoPlace();
+        } catch (error) {
+            Logger.error("Error in go button handler", error);
+            this.uiManager.showErrorState("Failed to process your request");
+        }
+    }
+
+    async gotoPlace() {
+        if (this.activeMarker) {
+            this.activeMarker.remove();
+            this.activeMarker = null; // <-- Ensure it's cleared
+        }
+        this.uiManager.showLoadingState("Processing your request...");
+
+        try {
+            if (this.markerManager.activeMarker) {
+                this.markerManager.activeMarker.remove();
+                this.markerManager.activeMarker = null;
+            }
+
+            this.uiManager.animateHeader();
+            await this.resetBeforeNewPlace();
+
+            const cat1 = this.elements.categoryDropdown1.value;
+            const cat2 = this.elements.categoryDropdown2.value;
+
+            this.selectedCategories = {
+                category1: this.getCategoryByDisplayName(cat1),
+                category2: this.getCategoryByDisplayName(cat2)
+            };
+
+            const combinedTypes = [
+                ...(this.selectedCategories.category1?.types || []),
+                ...(this.selectedCategories.category2?.types || [])
+            ];
+
+            const labels = [
+                this.selectedCategories.category1?.short,
+                this.selectedCategories.category2?.short
+            ].filter(Boolean);
+
+            this.elements.detailPopup.style.display = 'none';
+            await this.getNearbyHotels(this.selecteDestination, labels, combinedTypes);
+        } catch (error) {
+            Logger.error("Error in gotoPlace", error);
+            throw error;
+        } finally {
+            this.uiManager.hideLoadingState();
+        }
+    }
+
+    getCategoryByDisplayName(displayName) {
+        if (!displayName) return null;
+
+        const categoryKey = Object.keys(this.categoryMappings).find(key =>
+            this.categoryMappings[key].DisplayName === displayName
+        );
+        return categoryKey ? this.categoryMappings[categoryKey] : null;
+    }
+
+    async resetBeforeNewPlace() {
+        if (this.activeMarker) {
+            this.activeMarker.remove();
+            this.activeMarker = null; // <-- Ensure it's cleared
+        }
+        this.markerManager.clearAllRoutes();
+        this.markerManager.clearAllMarkers();
+        this.elements.detailPopup.style.display = 'none';
+
+        this.elements.aiRouteContainer.style.display = 'none';
+        // Reset UI elements
+        const elementsToHide = [
+            'airouteContainer', 'placeDetails', 'backToAllHotelsButton', 'detailPopup',
+            'backToHotelButton', 'locationTitle', 'locationSubtitle', 'genRouteButton'
+        ];
+
+        elementsToHide.forEach(elementKey => {
+            if (this.elements[elementKey]) {
+                this.elements[elementKey].style.display = 'none';
+            }
+        });
+
+        if (this.elements.detailPopupContainer) {
+            this.elements.detailPopupContainer.innerHTML = '';
+        }
+        this.nearbyPlaces = [];
+    }
+
+    async setupPlaceAutocomplete() {
+        const { PlaceAutocompleteElement } = this.mapManager.library;
+        const container = document.getElementById('place-autocomplete-card');
+
+        if (!container || document.getElementById('place-autocomplete-input')) return;
+
+        const placeAutocomplete = new PlaceAutocompleteElement();
+        placeAutocomplete.id = 'place-autocomplete-input';
+        container.appendChild(placeAutocomplete);
+
+        placeAutocomplete.addEventListener('gmp-select', async ({ placePrediction }) => {
+            try {
+                const place = await placePrediction.toPlace();
+                await place.fetchFields({ fields: ['displayName', 'formattedAddress', 'location'] });
+                this.selecteDestination = place.toJSON();
+                Logger.info("Place selected successfully");
+            } catch (error) {
+                Logger.error("Error selecting place", error);
+                this.uiManager.showUserError("Failed to select place. Please try again.");
+            }
+        });
+    }
 
     setupCategoryDropdowns() {
         const dropdown1 = this.elements.categoryDropdown1;
         const dropdown2 = this.elements.categoryDropdown2;
 
-        // Get list of display names
         const categoryLabels = Object.values(this.categoryMappings).map(cat => cat.DisplayName);
 
         const populateDropdown = (dropdown, exclude = "", defaultLabel = "") => {
             dropdown.innerHTML = "";
-
             categoryLabels.forEach(label => {
                 if (label !== exclude) {
                     const option = document.createElement("option");
                     option.className = "category-option";
                     option.value = label;
                     option.textContent = label;
-                    if (label === defaultLabel) {
-                        option.selected = true;
-                    }
+                    if (label === defaultLabel) option.selected = true;
                     dropdown.appendChild(option);
                 }
             });
@@ -229,164 +958,57 @@ class HotelMapApp {
         populateDropdown(dropdown2, "🏛️ Culture & History", "🍴 Food & Drink");
     }
 
-    async setupPlaceAutocomplete() {
-        const { PlaceAutocompleteElement } = this.library;
+    async getNearbyHotels(location, labels, types) {
+        try {
+            this.elements.locationTitle.style.display = "block";
+            this.elements.locationSubtitle.style.display = "block";
+            this.elements.locationTitle.innerHTML = `Hotels in ${location.formattedAddress}`;
+            this.elements.locationSubtitle.innerHTML = `${this.selectedCategories.category1.DisplayName} &nbsp;&nbsp;&nbsp;&nbsp; ${this.selectedCategories.category2.DisplayName}`;
 
-        const autocompleteContainer = document.getElementById('place-autocomplete-card');
-        if (!autocompleteContainer) return;
+            this.markerManager.clearAllMarkers();
+            this.elements.backToAllHotelsButton.style.display = 'none';
+            this.elements.placeDetails.style.display = 'none';
 
-        if (document.getElementById('place-autocomplete-input')) return;
+            const placeList = this.elements.placeList;
+            const placeSearchQuery = document.querySelector("gmp-place-text-search-request");
+            placeSearchQuery.textQuery = `hotel near ${labels[0]} and ${labels[1]} in ${location.formattedAddress}`;
 
-        const placeAutocomplete = new PlaceAutocompleteElement();
-        placeAutocomplete.id = 'place-autocomplete-input';
-        autocompleteContainer.appendChild(placeAutocomplete);
+            const onLoad = () => {
+                this.addHotelMarkers(types);
+                this.setupHotelSelection(types);
+                placeList.removeEventListener('gmp-load', onLoad);
+            };
+            placeList.addEventListener('gmp-load', onLoad);
 
-
-        this.selectedPlace = null;
-
-        placeAutocomplete.addEventListener('gmp-select', async ({ placePrediction }) => {
-            try {
-                const place = await placePrediction.toPlace();
-                await place.fetchFields({ fields: ['displayName', 'formattedAddress', 'location'] });
-                this.selectedPlace = place.toJSON(); // store it
-                console.log("Place selected, waiting for Go button...");
-            } catch (error) {
-                console.error("Error selecting place:", error);
+            const weather = await this.apiService.getWeatherInfo(location.location);
+            if (weather) {
+                this.uiManager.showWeatherInfo(weather);
             }
-        });
-
-        this.elements.gobutton.addEventListener('click', async () => {
-            console.log("clicked")
-
-            if (!this.selectedPlace) {
-
-                alert("Please select a destination first.");
-                return;
-            }
-            else {
-                this.gotoplace();
-            }
-
-        });
+            await this.mapManager.setCamera(
+                location.location.lat,
+                location.location.lng,
+                10,
+                35,
+                CONFIG.CAMERA_RANGES.OVERVIEW
+            );
+        } catch (error) {
+            Logger.error("Error getting nearby hotels", error);
+            this.uiManager.showErrorState("Failed to find hotels in this area");
+        }
     }
-    animateHeader() {
-        this.elements.map.style.display = 'block';
-        this.elements.placeList.style.display = 'block';
-        const header = document.getElementById('main-header');
-        const dropdown = document.getElementById('dropdown-container');
 
-        // Remove no-transition class to enable smooth animation
-        dropdown.classList.remove('no-transition');
-
-        // Stage 1: Everything slides up off-screen
-        header.classList.remove('expanded');  // This makes header slide up
-        dropdown.classList.add('slide-up');   // This makes dropdown slide up too
-
-        // Stage 2: After first animation completes, slide dropdown back down
-        setTimeout(() => {
-            // Hide fullscreen elements
-            document.getElementById('card-container').style.display = 'none';
-            document.getElementById('logo').style.display = 'none';
-
-            // Show header elements
-            document.getElementById('dropdown-logo').style.display = 'block';
-
-            // Bring header back to normal position
-            header.classList.add('slide-back');
-
-            // Slide dropdown back down to header position
-            dropdown.classList.remove('slide-up');
-            dropdown.classList.add('slide-back');
-
-        }, 2000);
-    }
-    async gotoplace() {
+    addHotelMarkers(types) {
+        const { Marker3DInteractiveElement, PinElement } = this.mapManager.library;
         if (this.activeMarker) {
             this.activeMarker.remove();
-            this.activeMarker = null;
+            this.activeMarker = null; // <-- Ensure it's cleared
         }
-        this.animateHeader();
-        await this.resetBeforeNewPlace();
-        const cat1 = this.elements.categoryDropdown1.value;
-        const cat2 = this.elements.categoryDropdown2.value;
-
-        // Store selected category data
-        this.selectedCategories = {
-            category1: this.getCategoryByDisplayName(cat1),
-            category2: this.getCategoryByDisplayName(cat2)
-        };
-
-        // Extract what you need for the API call
-        const combinedTypes = [
-            ...(this.selectedCategories.category1?.types || []),
-            ...(this.selectedCategories.category2?.types || [])
-        ];
-
-        const labels = [
-            this.selectedCategories.category1?.short,
-            this.selectedCategories.category2?.short
-        ].filter(Boolean); // Remove any null/undefined values
-        console.log(labels)
-        console.log(combinedTypes)
-        try {
-            this.elements.sponsoredPopup.style.display = 'none';
-            await this.getNearbyHotels(this.selectedPlace, labels, combinedTypes);
-        } catch (error) {
-            console.error("Error in Go handler:", error);
-        }
-    }
-
-    getCategoryByDisplayName(displayName) {
-        if (!displayName) return null;
-
-        const categoryKey = Object.keys(this.categoryMappings).find(key =>
-            this.categoryMappings[key].DisplayName === displayName
-        );
-        return categoryKey ? this.categoryMappings[categoryKey] : null;
-    }
-    async gotopresetplace(cat1, cat2, location) {
-        console.log(this.categoryMappings)
-        this.elements.map.style.display = 'block';
-        this.animateHeader();
-        // Store selected category data
-        this.selectedCategories = {
-            category1: this.categoryMappings[cat1],
-            category2: this.categoryMappings[cat2]
-        };
-
-        // Extract what you need for the API call
-        const combinedTypespres = [
-            ...(this.selectedCategories.category1?.types || []),
-            ...(this.selectedCategories.category2?.types || [])
-        ];
-
-        const labelspres = [
-            this.selectedCategories.category1?.short,
-            this.selectedCategories.category2?.short
-        ].filter(Boolean); // Remove any null/undefined values
-        this.selectedPlace = location;
-        console.log(this.selectedPlace)
-        console.log(labelspres)
-        console.log(combinedTypespres)
-        try {
-            this.elements.sponsoredPopup.style.display = 'none';
-            await this.getNearbyHotels(this.selectedPlace, labelspres, combinedTypespres);
-        } catch (error) {
-            console.error("Error in Go handler:", error);
-        }
-    }
-    async addMarkers(types) {
-        const { Marker3DInteractiveElement, PinElement } = this.library;
-
-        this.elements.sponsoredPopup.style.display = 'none';
         if (this.elements.placeList.places?.length > 0) {
-            this.elements.placeList.places.forEach(async (feature, index) => {
+            this.elements.placeList.places.forEach(async (feature) => {
                 const location = feature.location.toJSON();
-                const lat = location.lat;
-                const lng = location.lng;
 
                 const marker = new Marker3DInteractiveElement({
-                    position: { lat, lng },
+                    position: { lat: location.lat, lng: location.lng },
                     altitudeMode: "RELATIVE_TO_MESH",
                     extruded: true,
                     collisionBehavior: google.maps.CollisionBehavior.REQUIRED_AND_HIDES_OPTIONAL
@@ -398,366 +1020,208 @@ class HotelMapApp {
                     glyphColor: "#2E49D6",
                     borderColor: "#2E49D6"
                 });
+
                 marker.addEventListener('gmp-click', () => {
                     this.moveToLocation(feature.toJSON(), types);
                 });
 
                 marker.append(pin);
-                this.map3D.append(marker);
-                this.hotelMarkers.push(marker);
+                this.mapManager.map3D.append(marker);
+                this.markerManager.hotelMarkers.push(marker);
             });
         }
     }
 
-    clearAllRoutes() {
-        this.activePolylines.forEach(polyline => this.map3D.removeChild(polyline));
-        this.activePolylines.clear();
+    setupHotelSelection(types) {
+        this.elements.placeList.addEventListener('gmp-select', ({ place }) => {
+            this.elements.locationTitle.style.display = 'none';
+            this.elements.locationSubtitle.style.display = 'none';
+            this.moveToLocation(place.toJSON(), types);
+        });
     }
 
-    removeSpecificRoute(markerId) {
-        const polyline = this.activePolylines.get(markerId);
-        const centerMarker = this.activeCenterMarkers.get(markerId);
-        if (polyline) this.map3D.removeChild(polyline);
-        if (centerMarker) this.map3D.removeChild(centerMarker);
-        this.activePolylines.delete(markerId);
-        this.activeCenterMarkers.delete(markerId);
-    }
-    async calculateRoute(origin, destination) {
-        console.log(destination)
-
-        const requestBody = {
-            origin: {
-                location: {
-                    latLng: {
-                        latitude: origin.lat,
-                        longitude: origin.lng
-                    }
-                }
-            },
-            destination: {
-                location: {
-                    latLng: {
-                        latitude: destination.latitude,
-                        longitude: destination.longitude
-                    }
-                }
-            },
-            travelMode: "WALK",
-            languageCode: "en",
-            units: "METRIC"
-        };
-
-        try {
-            const response = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
-                method: "POST",
-                body: JSON.stringify(requestBody),
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-Goog-FieldMask": "routes.polyline,routes.localizedValues",
-                    "X-Goog-Api-Key": this.apiKey
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! Status: ${response.status}`);
-            }
-
-            const data = await response.json();
-            return data;
-
-        } catch (error) {
-            console.error("Error calculating route:", error);
-            return null;
-        }
-    }
     async moveToLocation(hotel, types) {
-        this.elements.locationTitle.style.display = 'none';
-        this.elements.locationsubTitle.style.display = 'none';
-        if (this.hotelMarkers) this.hotelMarkers.forEach(marker => marker.remove());
-        this.elements.sponsoredPopup.style.display = 'none';
-        this.selectedPlace = hotel;
-        if (this.activeMarker) { this.activeMarker.remove(); this.activeMarker = null; }
-        this.activeMarker = await this.addFloatingHotelMarker(hotel);
-        this.groundElevation = await this.getElevation(hotel.location.lat, hotel.location.lng);
+        if (this.markerManager.activeMarker) {
+            this.markerManager.activeMarker.remove();
+            this.markerManager.activeMarker = null;
+        }
 
-        this.activeMarker.addEventListener('gmp-click', async () => {
-            //when hotelmarker gets double clicked
-            await this.setCamera(hotel.location.lat, hotel.location.lng, this.groundElevation, 35, 150, true);
-            this.elements.resetcamerabutton.style.display = 'block';
-        });
-        console.log(this.groundElevation)
         try {
-            //when hotel gets clicked
-            await this.setCamera(hotel.location.lat, hotel.location.lng, this.groundElevation, 45, 2000, false);
-            this.searchNearbyFeatures(hotel.location, types);
-            this.displayHotelDetails(hotel.id);
+            this.elements.locationTitle.style.display = 'none';
+            this.elements.locationSubtitle.style.display = 'none';
+
+            this.markerManager.hotelMarkers.forEach(marker => marker.remove());
+            this.elements.detailPopup.style.display = 'none';
+            this.selectedPlace = hotel;
+
+            await this.mapManager.setCamera(
+                hotel.location.lat,
+                hotel.location.lng,
+                this.mapManager.groundElevation,
+                35,
+                CONFIG.CAMERA_RANGES.DETAIL,
+                false
+            );
+            this.elements.resetCameraButton.style.display = 'block';
+            this.markerManager.activeMarker = await this.markerManager.createHotelMarker(hotel);
+            this.mapManager.groundElevation = await this.apiService.getElevation(hotel.location.lat, hotel.location.lng);
+            const transportData = await this.apiService.getPublicTransport(hotel.location);
+            const count = transportData?.count || 0;
+            console.log(transportData)
+            this.uiManager.showPublicTransportInfo(count);
+            this.markerManager.activeMarker.addEventListener('gmp-click', async () => {
+                await this.mapManager.setCamera(
+                    hotel.location.lat,
+                    hotel.location.lng,
+                    this.mapManager.groundElevation,
+                    35,
+                    CONFIG.CAMERA_RANGES.CLOSE_UP,
+                    true
+                );
+                this.elements.resetCameraButton.style.display = 'block';
+            });
+
+
+
+            this.debouncedSearch(hotel.location, types);
+            this.uiManager.displayHotelDetails(hotel.id);
         } catch (error) {
-            console.error("Error during map move:", error);
+            Logger.error("Error moving to location", error);
+            this.uiManager.showErrorState("Failed to load hotel details");
         }
     }
 
-    async addFloatingHotelMarker(hotel) {
-        const { Marker3DInteractiveElement, PinElement } = this.library;
+    async searchNearbyFeatures(location, types) {
+        try {
+            this.nearbyPlaces = [];
+            this.markerManager.nearbyMarkers.forEach(marker => marker.remove());
+            this.markerManager.nearbyMarkers = [];
 
-        const pin = new PinElement({
-            scale: 1.4,
-            background: '#8292E7',
-            glyphColor: "#2E49D6",
-            borderColor: "#2E49D6"
-        });
-        const marker = new Marker3DInteractiveElement({
-            position: {
-                lat: hotel.location.lat,
-                lng: hotel.location.lng,
-            },
-            altitudeMode: "RELATIVE_TO_MESH",
-            collisionBehavior: google.maps.CollisionBehavior.REQUIRED,
-            extruded: false
-        });
-
-        marker.append(pin);
-        this.map3D.append(marker);
-        return marker;
-    }
-
-    async setCamera(lat, lng, alt, tilt, range, rotatecamera) {
-        const flyOptions = {
-            endCamera: {
-                center: { lat, lng, altitude: alt },
-                range,
-                tilt,
-                heading: 0
-            },
-            durationMillis: 3000
-        };
-        const onAnimationEnd = () => {
-            if (rotatecamera) {
-
-                this.map3D.flyCameraAround({
-                    camera: { center: { lat, lng, altitude: alt }, tilt, range, heading: 0 },
-                    durationMillis: 50000,
-                    rounds: 1
-                });
-            };
+            const data = await this.apiService.searchNearbyPlaces(location, types);
+            await this.addNearbyFeatureMarkers(data, location);
+        } catch (error) {
+            Logger.error("Error searching nearby features", error);
+            this.uiManager.showErrorState("Failed to find nearby attractions");
         }
-
-        // Prevent duplicate animation listeners
-        this.map3D.removeEventListener('gmp-animationend', onAnimationEnd);
-        this.map3D.addEventListener('gmp-animationend', onAnimationEnd, { once: true });
-
-        this.map3D.flyCameraTo(flyOptions);
     }
 
-
-    searchNearbyFeatures(location, types) {
-        this.nearbyPlaces = [];
-        console.log(types)
-        this.nearbyMarkers.forEach(marker => marker.remove());
-        this.nearbyMarkers = [];
-        const requestBody = {
-            includedTypes: types,
-            excludedTypes: ["hotel", "grocery_store", "supermarket", "bus_station", "train_station", "transit_station"],
-            maxResultCount: 20,
-            rankPreference: "POPULARITY",
-            languageCode: "en",
-            locationRestriction: {
-                circle: {
-                    center: { latitude: location.lat, longitude: location.lng },
-                    radius: 3000
-                }
-            }
-        };
-
-        fetch("https://places.googleapis.com/v1/places:searchNearby", {
-            method: "POST",
-            body: JSON.stringify(requestBody),
-            headers: {
-                "Content-type": "application/json",
-                "X-Goog-FieldMask": "places.id,places.displayName,places.location,places.iconMaskBaseUri,places.primaryTypeDisplayName",
-                "X-Goog-Api-Key": this.apiKey
-            }
-        })
-            .then(response => response.json())
-            .then(data => this.addNearbyFeatureMarkers(data, location))
-            .catch(error => console.error("Error searching nearby features:", error));
-    }
     async addNearbyFeatureMarkers({ places }, location) {
-
-        if (!this.map3D) {
-            console.error("Map3D not initialized");
+        if (!this.mapManager.map3D || !places?.length) {
+            this.elements.detailPopup.style.display = 'none';
             return;
         }
 
-        // Clear existing markers
-        this.nearbyMarkers.forEach(marker => marker.remove());
-        this.nearbyMarkers = [];
+        this.markerManager.nearbyMarkers.forEach(marker => marker.remove());
+        this.markerManager.nearbyMarkers = [];
 
-        if (places?.length) {
-            //await this.displaySponsoredActivities(places, location);
-            this.createFeatureMarkers(places, location);
-        } else {
-            this.elements.sponsoredPopup.style.display = 'none';
-
-        }
+        await this.createFeatureMarkers(places, location);
     }
+
     async createFeatureMarkers(places, location) {
-        // Import all libraries once at the beginning
-        const [
-            { Marker3DInteractiveElement, Polyline3DElement },
-            { PinElement }
-        ] = await Promise.all([
-            google.maps.importLibrary("maps3d"),
-            google.maps.importLibrary("marker")
-        ]);
+        const { Marker3DInteractiveElement, Polyline3DElement } = this.mapManager.library;
+        const { PinElement } = this.mapManager.library;
 
-        // Helper function to create place details element
-        const createPlaceDetailsElement = (placeId) => {
-            const placeDetailsEl = document.createElement("gmp-place-details-compact");
-            placeDetailsEl.setAttribute("orientation", "horizontal");
-            placeDetailsEl.setAttribute("truncation-preferred", "");
-
-            // Place request
-            const placeRequestEl = document.createElement("gmp-place-details-place-request");
-            placeRequestEl.setAttribute("place", placeId);
-            placeDetailsEl.appendChild(placeRequestEl);
-
-            // Place content config
-            const contentConfig = document.createElement("gmp-place-content-config");
-
-            const configElements = [
-                ["gmp-place-media", { "lightbox-preferred": "" }],
-                ["gmp-place-rating"],
-                ["gmp-place-type"],
-                ["gmp-place-price"],
-                ["gmp-place-accessible-entrance-icon"],
-                ["gmp-place-open-now-status"],
-                ["gmp-place-attribution"]
-            ];
-
-            configElements.forEach(([tag, attrs = {}]) => {
-                const el = document.createElement(tag);
-                Object.entries(attrs).forEach(([key, value]) => {
-                    el.setAttribute(key, value);
-                });
-                contentConfig.appendChild(el);
+        const markerPromises = places.map(async (feature) => {
+            this.nearbyPlaces.push({
+                name: feature.displayName?.text,
+                type: feature.primaryTypeDisplayName?.text,
+                location: feature.location,
+                placeId: feature.id
             });
-
-            placeDetailsEl.appendChild(contentConfig);
-            placeDetailsEl.style.width = "350px";
-            placeDetailsEl.style.height = "120px";
-            placeDetailsEl.style.colorScheme = "light";
-
-            // Load event
-            placeDetailsEl.addEventListener("gmp-load", () => {
-                placeDetailsEl.style.visibility = "visible";
-                console.log(`Place details widget loaded for ${placeId}`);
-            });
-
-            return placeDetailsEl;
-        };
-
-        // Helper function to create route polyline
-        const createRoutePolyline = () => {
-            return new Polyline3DElement({
-                strokeColor: "#f7e76fff",
-                strokeWidth: 5,
-                altitudeMode: "RELATIVE_TO_MESH",
-                extruded: true,
-                drawsOccludedSegments: true,
-            });
-        };
-
-        // Process all places
-        const markerPromises = places.map(async (feature, index) => {
-            this.nearbyPlaces.push({ name: feature.displayName?.text, type: feature.primaryTypeDisplayName?.text, location: feature.location, placeId: feature.id });
-
-            const placeId = feature.id;
 
             try {
-
-                // Create the marker
                 const marker = new Marker3DInteractiveElement({
                     position: {
                         lat: feature.location.latitude,
                         lng: feature.location.longitude,
                     },
-                    label: `${feature.displayName.text}`,
+                    label: feature.displayName.text,
                     altitudeMode: "RELATIVE_TO_MESH",
                     extruded: true,
                     collisionBehavior: google.maps.CollisionBehavior.OPTIONAL_AND_HIDES_LOWER_PRIORITY
                 });
+
                 marker.originalLabel = feature.displayName.text;
                 marker.label = feature.displayName.text;
-                // Create and style pin
-                const pin = new PinElement({
-                    scale: 0,
 
-                });
+                const pin = new PinElement({ scale: 0 });
                 marker.append(pin);
 
-                // Handle marker clicks
                 marker.addEventListener("gmp-click", async () => {
-                    // Deselect previously active marker
-                    if (this.activeMarker && this.activeMarker !== marker) {
-                        this.activeMarker.label = this.activeMarker.originalLabel;
-                        // this.removeSpecificRoute(this.activeMarker.id);
-                    }
-                    // this.setCamera(location.latitude, location.longitude, 10, 50, 4000);
-                    const isSameMarker = this.activeMarker === marker;
-
-                    if (isSameMarker) {
-                        // Deselect current marker
-                        marker.label = this.activeMarker.originalLabel;
-                        this.removeSpecificRoute(marker.id);
-                        this.activeMarker = null;
-                        //When nearby feature gets double clicked
-                        this.elements.resetcamerabutton.style.display = 'block';
-                        this.setCamera(feature.location.latitude, feature.location.longitude, this.groundElevation, 35, 150, true);
-                    } else {
-                        // Set this marker as active
-                        marker.label = `⭐${feature.displayName.text}`;
-                        this.elements.sponsoredContainer.innerHTML = "";
-
-                        this.clearAllRoutes(); // Optional
-
-                        try {
-                            const route = await this.calculateRoute(location, feature.location);
-                            if (route?.routes?.[0]) {
-                                const polyline = createRoutePolyline();
-                                const path = google.maps.geometry.encoding.decodePath(route.routes[0].polyline.encodedPolyline);
-                                polyline.coordinates = path;
-
-                                this.fillSponsoredContainer(placeId, route, this.elements.sponsoredContainer, this.elements.sponsoredPopup);
-
-
-                                this.activePolylines.set(marker.id, polyline);
-                                this.map3D.append(polyline);
-                            }
-                        } catch (error) {
-                            console.error("Error calculating route:", error);
-                        }
-
-                        this.activeMarker = marker;
-                    }
+                    await this.handleFeatureMarkerClick(marker, feature, location);
                 });
 
-
-                this.map3D.append(marker);
-                this.nearbyMarkers.push(marker);
-
+                this.mapManager.map3D.append(marker);
+                this.markerManager.nearbyMarkers.push(marker);
                 return marker;
             } catch (error) {
-                console.error(`Error creating marker for ${feature.displayName.text}:`, error);
+                Logger.error(`Error creating marker for ${feature.displayName.text}`, error);
                 return null;
             }
         });
 
-        // Wait for all markers to be created
         const markers = await Promise.all(markerPromises);
-        console.log(`Created ${markers.filter(m => m !== null).length} markers successfully`);
+        Logger.info(`Created ${markers.filter(m => m !== null).length} feature markers`);
     }
-    fillSponsoredContainer(placeId, route, sponsoredContainer, sponsoredPopup) {
-        // Create place details element
+
+    async handleFeatureMarkerClick(marker, feature, location) {
+        // Deselect previously active marker
+        if (this.markerManager.activeFeatureMarker && this.markerManager.activeFeatureMarker !== marker) {
+            this.markerManager.activeFeatureMarker.label = this.markerManager.activeFeatureMarker.originalLabel;
+        }
+
+        const isSameMarker = this.markerManager.activeFeatureMarker === marker;
+        if (isSameMarker) {
+            // Deselect current marker
+            marker.label = marker.originalLabel;
+            this.markerManager.removeSpecificRoute(marker.id);
+            this.elements.resetCameraButton.style.display = 'block';
+            const featureelevation = await this.apiService.getElevation(feature.location.latitude, feature.location.longitude);
+            await this.mapManager.setCamera(
+                feature.location.latitude,
+                feature.location.longitude,
+                featureelevation,
+                35,
+                CONFIG.CAMERA_RANGES.CLOSE_UP,
+                true
+            );
+        } else {
+            // Set this marker as active
+            marker.label = `⭐${feature.displayName.text}`;
+            this.elements.detailPopupContainer.innerHTML = "";
+            this.markerManager.clearAllRoutes();
+
+            try {
+                const route = await this.apiService.calculateRoute(location, feature.location);
+                if (route?.routes?.[0]) {
+                    const polyline = this.createRoutePolyline();
+                    const path = google.maps.geometry.encoding.decodePath(route.routes[0].polyline.encodedPolyline);
+                    polyline.coordinates = path;
+
+                    this.filldetailPopupContainer(feature.id, route);
+                    this.markerManager.activePolylines.set(marker.id, polyline);
+                    this.mapManager.map3D.append(polyline);
+                }
+            } catch (error) {
+                Logger.error("Error calculating route for feature", error);
+            }
+
+            this.markerManager.activeFeatureMarker = marker;
+        }
+    }
+
+    createRoutePolyline() {
+        const { Polyline3DElement } = this.mapManager.library;
+        return new Polyline3DElement({
+            strokeColor: "#f7e76fff",
+            strokeWidth: 5,
+            altitudeMode: "RELATIVE_TO_GROUND",
+            extruded: false,
+            drawsOccludedSegments: true,
+        });
+    }
+
+    filldetailPopupContainer(placeId, route) {
         const placeDetailsEl = document.createElement("gmp-place-details-compact");
         placeDetailsEl.setAttribute("orientation", "horizontal");
         placeDetailsEl.setAttribute("truncation-preferred", "");
@@ -767,7 +1231,6 @@ class HotelMapApp {
         placeDetailsEl.appendChild(placeRequestEl);
 
         const contentConfig = document.createElement("gmp-place-content-config");
-
         const configElements = [
             ["gmp-place-media", { "lightbox-preferred": "" }],
             ["gmp-place-rating"],
@@ -785,413 +1248,196 @@ class HotelMapApp {
         });
 
         placeDetailsEl.appendChild(contentConfig);
-        placeDetailsEl.style.width = "350px";
-        placeDetailsEl.style.height = "120px";
-        placeDetailsEl.style.colorScheme = "light";
+        Object.assign(placeDetailsEl.style, {
+            width: "350px",
+            height: "120px",
+            colorScheme: "light"
+        });
 
         placeDetailsEl.addEventListener("gmp-load", () => {
             placeDetailsEl.style.visibility = "visible";
-            console.log(`Place details widget loaded for ${placeId}`);
+            Logger.info(`Place details loaded for ${placeId}`);
         });
 
-        sponsoredContainer.innerHTML = ""; // Clear container
-        sponsoredContainer.append(placeDetailsEl);
+        this.elements.detailPopupContainer.innerHTML = "";
+        this.elements.detailPopupContainer.append(placeDetailsEl);
+
         if (route) {
             const details = document.createElement("p");
             details.id = "walking-details";
             details.innerHTML = `🚶‍♂️${route.routes[0].localizedValues.duration.text} - ${route.routes[0].localizedValues.distance.text}`;
-            sponsoredContainer.appendChild(details);
+            this.elements.detailPopupContainer.appendChild(details);
         }
-        sponsoredPopup.style.display = 'block';
-    }
-    async getElevation(lat, lng) {
-        const url = `https://maps.googleapis.com/maps/api/elevation/json?locations=${lat}%2C${lng}&key=${this.elevationKey}`;
-        try {
-            const response = await fetch(url);
-            const data = await response.json();
-            if (data.status === "OK" && data.results.length > 0) {
-                return data.results[0].elevation;
-            } else {
-                console.error("Elevation API error:", data.status);
-                return 0;
-            }
-        } catch (error) {
-            console.error("Failed to fetch elevation:", error);
-            return 0;
-        }
+
+        this.elements.detailPopup.style.display = 'block';
     }
 
-    async getNearbyHotels(location, labels, types) {
-        if (this.activeMarker) {
-            this.activeMarker.remove();
-            this.activeMarker = null;
-        }
-        this.elements.locationTitle.style.display = "block"
-        this.elements.locationsubTitle.style.display = "block"
-        //const bounds = this.createBoundsFromCenterAndRadius({ lat: location.lat, lng: location.lng }, 5000);
-        this.elements.locationTitle.innerHTML = `Hotels in ${location.formattedAddress}`
-        this.elements.locationsubTitle.innerHTML = `${this.selectedCategories.category1.DisplayName} &nbsp;&nbsp;&nbsp;&nbsp;  ${this.selectedCategories.category2.DisplayName}`
+    async generateAIWalkingRoute() {
         try {
-            this.nearbyMarkers.forEach(marker => marker.remove());
-            this.nearbyMarkers = [];
-            this.elements.backToAllHotels.style.display = 'none';
+            this.elements.backToHotelButton.style.display = 'none';
+            this.elements.locationTitle.style.display = 'none';
+            this.elements.locationSubtitle.style.display = 'none';
+            this.elements.publicTransportInfo.style.display = 'none';
+
+            this.elements.gobutton.disabled = true;
+
+            this.markerManager.clearAllRoutes();
+
+            // Show loading UI
+            this.elements.loadingStepsContainer.innerHTML = "";
+            this.elements.aiRouteLoading.style.display = 'block';
+            this.elements.aiRouteContainer.style.display = 'none';
+            this.elements.placeList.style.display = 'none';
             this.elements.placeDetails.style.display = 'none';
+            this.elements.backToAllHotelsButton.style.display = 'none';
+            this.elements.detailPopup.style.display = 'none';
 
-            const placeList = this.elements.placeList;
-            const placeSearchQuery = document.querySelector("gmp-place-text-search-request");
+            const finishLoadingStep = this.uiManager.displayLoadingSteps();
 
-            placeSearchQuery.textQuery = `hotel near ${labels[0]} and ${labels[1]} in ${location.formattedAddress}`;
-            //     placeSearchQuery.locationBias = bounds;
-            // console.log(bounds)
-            // Wait for results to load before continuing
-            console.log(types)
-            const onLoad = () => {
-                this.addMarkers(types);
-                this.elements.placeList.addEventListener('gmp-select', ({ place }) => {
-                    this.elements.locationTitle.style.display = 'none';
-                    this.elements.locationsubTitle.style.display = 'none';
+            // Hide hotel UI elements
+            const elementsToHide = [
+                'placeList', 'placeDetails', 'backToAllHotelsButton',
+                'airouteContainer', 'aiRouteLoading', 'genRouteButton'
+            ];
+            elementsToHide.forEach(key => {
+                if (this.elements[key]) this.elements[key].style.display = 'none';
+            });
 
-                    this.moveToLocation(place.toJSON(), types);
-                });
-                placeList.removeEventListener('gmp-load', onLoad); // Remove after fire
-            };
-            placeList.addEventListener('gmp-load', onLoad);
+            this.elements.aiRouteLoading.style.display = 'block';
 
-
-            await this.showWeatherInfo(location.location);
-            await this.setCamera(location.location.lat, location.location.lng, 10, 35, 8000, false);
+            const aiData = await this.apiService.generateAIRoute(this.nearbyPlaces, this.selectedCategories);
+            finishLoadingStep();
+            await this.calculateAIRoute(aiData);
         } catch (error) {
-            console.error("Error getting nearby hotels:", error);
+            Logger.error("Error generating AI route", error);
+            this.elements.aiRouteLoading.innerHTML = "<p>Failed to generate route. Please try again.</p>";
+            this.elements.backToHotelButton.style.display = "block";
+        } finally {
+            this.elements.gobutton.disabled = false;
         }
     }
 
-    async showWeatherInfo(location) {
-        const weather = await this.getWeatherInfo(location);
-        const box = this.elements.weatherBox;
-        box.innerHTML = '';
-        box.style.display = 'none';
+    async calculateAIRoute(aiData) {
+        try {
+            const stops = aiData.stops.map(place => ({
+                location: {
+                    latLng: {
+                        latitude: place.location.lat,
+                        longitude: place.location.lng
+                    }
+                }
+            }));
 
-        if (weather?.temperature?.degrees !== undefined && weather.weatherCondition) {
-            const temp = weather.temperature.degrees;
+            const route = await this.apiService.calculateRoute(
+                this.selectedPlace.location,
+                this.selectedPlace.location,
+                stops
+            );
 
-            box.innerHTML = `
-                <img src="${weather.weatherCondition.iconBaseUri}.svg" alt="${weather.weatherCondition.condition}">
-                <span> ${temp}°C</span>
+            if (route?.routes?.[0]) {
+                this.markerManager.nearbyMarkers.forEach(marker => marker.remove());
+
+                const optimizedIndexes = route.routes[0].optimizedIntermediateWaypointIndex || [];
+                const reorderedStops = optimizedIndexes.map(i => aiData.stops[i]);
+
+                this.createRouteMarkers(reorderedStops);
+
+                // Set camera view
+                if (route.routes[0].viewport) {
+                    const { high, low } = route.routes[0].viewport;
+                    const centerLat = (high.latitude + low.latitude) / 2;
+                    const centerLng = (high.longitude + low.longitude) / 2;
+                    await this.mapManager.setCamera(centerLat, centerLng, 10, 0, 6000);
+                } else {
+                    await this.mapManager.setCamera(
+                        this.selectedPlace.location.lat,
+                        this.selectedPlace.location.lng,
+                        10, 0, 6000
+                    );
+                }
+
+                // Create and display route polyline
+                const polyline = this.createRoutePolyline();
+                polyline.strokeColor = "#f7e76fff";
+                polyline.altitudeMode = "RELATIVE_TO_GROUND";
+
+                const path = google.maps.geometry.encoding.decodePath(route.routes[0].polyline.encodedPolyline);
+                polyline.coordinates = path;
+                this.mapManager.map3D.append(polyline);
+                this.markerManager.routePolylines.push(polyline);
+
+                // Update UI
+                this.elements.aiRouteLoading.style.display = 'none';
+                this.elements.aiRouteContainer.style.display = 'block';
+
+                this.displayRouteResults(aiData, route, reorderedStops);
+            }
+        } catch (error) {
+            Logger.error("Error creating AI route", error);
+            throw error;
+        }
+    }
+
+    displayRouteResults(aiData, route, reorderedStops) {
+        this.elements.aiRouteSummary.innerHTML = `
+            <h3>${aiData.route_title}</h3>
+            <p id="route-summary-distance"><em>${route.routes[0].localizedValues.distance?.text} - ${route.routes[0].localizedValues.duration?.text}</em></p>
+            <p>${aiData.route_description}</p>
+        `;
+
+        this.elements.aiRouteStops.innerHTML = '';
+        reorderedStops.forEach((stop, i) => {
+            const div = document.createElement('div');
+            div.classList.add('ai-stop-card');
+            div.id = `ai-stop-card-${i}`;
+            div.innerHTML = `
+                <h4>${i + 1}. ${stop.name}</h4>
+                <p><em>${stop.type}</em></p>
+                <p>${stop.description}</p>
+                <hr />
             `;
-            box.style.display = 'inline-flex';
-        } else {
-            box.innerHTML = `<span>Weather data unavailable</span>`;
-            box.style.display = "none";
-        }
-    }
+            this.elements.aiRouteStops.appendChild(div);
+        });
 
-
-
-    displayHotelDetails(placeId) {
-        this.elements.genRoute.style.display = 'block';
-        this.elements.placeList.style.display = 'none';
-        this.elements.placeDetails.style.display = 'block';
-        this.elements.placeDetailsRequest.place = placeId;
-        this.elements.backToAllHotels.style.display = 'block';
-    }
-
-
-
-    showHotelList() {
-
-        this.nearbyMarkers.forEach(marker => marker.remove());
-        this.nearbyMarkers = [];
-
-        this.elements.placeDetails.style.display = 'none';
-        this.elements.placeList.style.display = 'block';
-        this.elements.backToAllHotels.style.display = 'none';
-
-        if (this.activeMarker) {
-            this.activeMarker.remove();
-            this.activeMarker = null;
-        }
-
-        this.addMarkers();
-        this.setCamera(this.selectedPlace.location.lat, this.selectedPlace.location.lng, 10, 45, 8000, false);
-    }
-
-    async getWeatherInfo(location) {
-        const url = `https://weather.googleapis.com/v1/currentConditions:lookup?key=${this.apiKey}&location.latitude=${location.lat}&location.longitude=${location.lng}`;
-        try {
-            const response = await fetch(url);
-            return await response.json();
-        } catch (error) {
-            console.error("Error fetching weather:", error);
-            return null;
-        }
-    }
-
-    async AIWalkingRoute() {
-        this.elements.backToHotel.style.display = 'none';
-        this.elements.locationTitle.style.display = 'none';
-        this.elements.locationsubTitle.style.display = 'none';
-        this.elements.gobutton.disabled = true;
-        this.clearAllRoutes();
-        console.log(this.selectedCategories)
-        const requestBody = {
-            "contents": [
-                {
-                    "parts": [
-                        {
-                            "text": `Based on the following list of places and their types, could you generate a JSON object for each stop and describe the stop? You don't need to use all stops, just the ones that are the most interesting based on the ${this.selectedCategories.category1.short} and ${this.selectedCategories.category2.short} as interests. also return in JSON a short summary title and description of the whole route. The list of location is the following: ${JSON.stringify(this.nearbyPlaces)}. The resulting JSON object should look like: {route_description: string, route_title:string, stops[{name:string,type:string,placeId: string, location: {lat:number,lng:number}, description:string}]}]}`
-                        }
-                    ]
-                }
-            ]
-        }
-
-
-        // Reset
-        this.elements.loadingContainer.innerHTML = "";
-        this.elements.loadingEl.style.display = 'block';
-        this.elements.routeContainer.style.display = 'none';
-        this.elements.placeList.style.display = 'none';
-        this.elements.placeDetails.style.display = 'none';
-        this.elements.backToAllHotels.style.display = 'none';
-        this.elements.sponsoredPopup.style.display = 'none';
-
-
-        const loadingSteps = [
-            "🔍 Looking for the best places...",
-            "🧠 Asking our travel expert...",
-            "🗺️ Drawing your custom route...",
-            "✨ Almost there..."
-        ];
-
-        let stepIndex = 0;
-        const stepInterval = setInterval(() => {
-            if (stepIndex < loadingSteps.length) {
-                const stepEl = document.createElement("p");
-                stepEl.className = "loading-step";
-
-                stepEl.textContent = loadingSteps[stepIndex];
-                this.elements.loadingContainer.appendChild(stepEl);
-                stepIndex++;
-            } else {
-                clearInterval(stepInterval);
-            }
-        }, 4000);
-
-
-        // Hide hotel UI
-        this.elements.placeList.style.display = 'none';
-        this.elements.placeDetails.style.display = 'none';
-        this.elements.backToAllHotels.style.display = 'none';
-        this.elements.routeContainer.style.display = 'none';
-        this.elements.loadingEl.style.display = 'block';
-        this.elements.genRoute.style.display = 'none';
-
-        try {
-            const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent", {
-                method: "POST",
-                body: JSON.stringify(requestBody),
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-Goog-Api-Key": this.apiKey
-                }
-            });
-
-            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-
-            const data = await response.json();
-            const cleanedData = data.candidates[0].content.parts[0].text
-                .replace(/^```json\s*/, '')
-                .replace(/```$/, '')
-                .trim();
-
-            const jsonData = JSON.parse(cleanedData);
-
-            // Call route drawing
-            await this.calculateAIRoute(jsonData);
-
-
-        } catch (error) {
-            console.error("Error fetching AI descriptions:", error);
-            this.elements.loadingEl.innerHTML = "<p>Failed to generate route. Please try again.</p>";
-        }
-    }
-    async calculateAIRoute(AIdata) {
-        const [
-            { Polyline3DElement }
-        ] = await Promise.all([
-            google.maps.importLibrary("maps3d")
-        ]);
-
-
-        const stops = [];
-        AIdata.stops.forEach(place => {
-            stops.push(
-                {
-                    location: {
-                        latLng: {
-                            latitude: place.location.lat,
-                            longitude: place.location.lng
-                        }
-                    }
-                }
-            )
-        })
-        const requestBody = {
-            origin: {
-                location: {
-                    latLng: {
-                        latitude: this.selectedPlace.location.lat,
-                        longitude: this.selectedPlace.location.lng
-                    }
-                }
-            },
-            destination: {
-                location: {
-                    latLng: {
-                        latitude: this.selectedPlace.location.lat,
-                        longitude: this.selectedPlace.location.lng
-                    }
-                }
-            },
-            intermediates: stops,
-            optimizeWaypointOrder: true,
-            travelMode: "WALK",
-            languageCode: "en",
-            units: "METRIC"
-        };
-
-        try {
-            const response = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
-                method: "POST",
-                body: JSON.stringify(requestBody),
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-Goog-FieldMask": "routes.polyline,routes.localizedValues,routes.optimized_intermediate_waypoint_index,routes.viewport",
-                    "X-Goog-Api-Key": this.apiKey
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! Status: ${response.status}`);
-            }
-
-            const data = await response.json();
-            const createRoutePolyline = () => {
-                return new Polyline3DElement({
-                    strokeColor: "#f7e76fff",
-                    strokeWidth: 5,
-                    altitudeMode: "RELATIVE_TO_GROUND",
-                    drawsOccludedSegments: true,
-                });
-            };
-            try {
-                const route = data
-                if (route?.routes?.[0]) {
-                    if (this.nearbyMarkers) this.nearbyMarkers.forEach(marker => marker.remove());
-                    console.log(this.nearbyMarkers)
-                    const optimizedIndexes = data.routes[0].optimizedIntermediateWaypointIndex;
-                    const reorderedStops = optimizedIndexes.map(i => AIdata.stops[i]);
-                    this.createRouteMarkers(reorderedStops)
-                    if (route?.routes?.[0].viewport) {
-                        const centerLat = (route?.routes?.[0].viewport.high.latitude + route?.routes?.[0].viewport.low.latitude) / 2;
-                        const centerLng = (route?.routes?.[0].viewport.high.longitude + route?.routes?.[0].viewport.low.longitude) / 2;
-
-                        const center = { lat: centerLat, lng: centerLng };
-                        console.log(center);
-                        this.setCamera(center.lat, center.lng, 10, 0, 6000)
-                    }
-                    else {
-                        this.setCamera(this.selectedPlace.location.lat, this.selectedPlace.location.lng, 10, 0, 6000)
-
-                    }
-                    const polyline = createRoutePolyline();
-                    this.routePolylines.push(polyline)
-                    const path = google.maps.geometry.encoding.decodePath(route.routes[0].polyline.encodedPolyline);
-                    polyline.coordinates = path;
-                    this.map3D.append(polyline);
-                    this.elements.loadingEl.style.display = 'none';
-                    this.elements.routeContainer.style.display = 'block';
-
-                    this.elements.summaryEl.innerHTML = `
-                        <h3>${AIdata.route_title}</h3>
-                        <p id="route-summary-distance"><em>${route.routes[0].localizedValues.distance?.text} - ${route.routes[0].localizedValues.duration?.text}</em></p>
-                        <p>${AIdata.route_description}</p>
-                    `;
-
-                    this.elements.stopsEl.innerHTML = '';
-                    reorderedStops.forEach((stop, i) => {
-                        const div = document.createElement('div');
-                        div.classList.add('ai-stop-card');
-                        div.id = `ai-stop-card-${i}`;
-                        div.innerHTML = `
-                            <h4>${i + 1}. ${stop.name}</h4>
-                            <p><em>${stop.type}</em></p>
-                            <p>${stop.description}</p>
-                            <hr />
-                        `;
-                        this.elements.stopsEl.appendChild(div);
-                    });
-                    this.elements.backToHotel.style.display = "block";
-
-                    this.elements.gobutton.disabled = false;
-                }
-            } catch (error) {
-                console.error("Error calculating route:", error);
-            }
-
-        } catch (error) {
-            console.error("Error calculating route:", error);
-            return null;
-        }
+        this.elements.backToHotelButton.style.display = "block";
     }
 
     createRouteMarkers(data) {
-        const { Marker3DInteractiveElement, PinElement } = this.library;
+        const { Marker3DInteractiveElement, PinElement } = this.mapManager.library;
+        this.routeStops = data;
 
-        // Store route stops for resetting labels later
-        this.RouteStops = data;
+        data.forEach((stop, i) => {
+            const { lat, lng } = stop.location;
 
-        if (data.length > 0) {
-            data.forEach((stop, i) => {
-                const { lat, lng } = stop.location;
-
-                const marker = new Marker3DInteractiveElement({
-                    position: { lat, lng },
-                    altitudeMode: "RELATIVE_TO_MESH",
-                    extruded: true,
-                    label: `${i + 1}. ${stop.name}`,
-                    collisionBehavior: google.maps.CollisionBehavior.REQUIRED_AND_HIDES_OPTIONAL
-                });
-
-                const pin = new PinElement({ scale: 0 });
-                this.RouteMarkers.push(marker);
-
-                // Attach click handler to marker
-                marker.addEventListener("gmp-click", async () => {
-                    this.highlightStop(i, stop);
-                    this.fillSponsoredContainer(
-                        stop.placeId,
-                        null,
-                        this.elements.sponsoredContainer,
-                        this.elements.sponsoredPopup
-                    );
-                });
-
-                // Wait for DOM to be ready, then attach click to card
-                setTimeout(() => {
-                    const card = document.getElementById(`ai-stop-card-${i}`);
-                    if (card) {
-                        card.addEventListener('click', () => {
-                            this.highlightStop(i, stop);
-                        });
-                    }
-                }, 0);
-
-                marker.append(pin);
-                this.map3D.append(marker);
+            const marker = new Marker3DInteractiveElement({
+                position: { lat, lng },
+                altitudeMode: "RELATIVE_TO_MESH",
+                extruded: true,
+                label: `${i + 1}. ${stop.name}`,
+                collisionBehavior: google.maps.CollisionBehavior.REQUIRED_AND_HIDES_OPTIONAL
             });
-        }
+
+            const pin = new PinElement({ scale: 0 });
+            marker.append(pin);
+
+            marker.addEventListener("gmp-click", async () => {
+                this.highlightStop(i, stop);
+                this.filldetailPopupContainer(stop.placeId, null);
+            });
+
+            // Setup card click handler
+            setTimeout(() => {
+                const card = document.getElementById(`ai-stop-card-${i}`);
+                if (card) {
+                    card.addEventListener('click', () => this.highlightStop(i, stop));
+                }
+            }, 0);
+
+            this.mapManager.map3D.append(marker);
+            this.markerManager.routeMarkers.push(marker);
+        });
     }
+
     highlightStop(index, stop) {
         // Reset all card backgrounds
         document.querySelectorAll(".ai-stop-card").forEach(cardEl => {
@@ -1199,105 +1445,168 @@ class HotelMapApp {
         });
 
         // Reset all marker labels
-        this.RouteMarkers.forEach((m, i) => {
-            m.label = `${i + 1}. ${this.RouteStops[i].name}`;
+        this.markerManager.routeMarkers.forEach((marker, i) => {
+            marker.label = `${i + 1}. ${this.routeStops[i].name}`;
         });
 
-        // Highlight the selected card
+        // Highlight selected elements
         const card = document.getElementById(`ai-stop-card-${index}`);
         if (card) {
             card.scrollIntoView({ behavior: 'smooth', block: 'start' });
             card.style.background = "#fcf2f2ff";
-            this.fillSponsoredContainer(
-                stop.placeId,
-                null,
-                this.elements.sponsoredContainer,
-                this.elements.sponsoredPopup
-            );
+            this.filldetailPopupContainer(stop.placeId, null);
         }
 
-        // Highlight the selected marker
-        this.RouteMarkers[index].label = `⭐ ${index + 1}. ${stop.name}`;
+        this.markerManager.routeMarkers[index].label = `⭐ ${index + 1}. ${stop.name}`;
     }
-    async resetBeforeNewPlace() {
-        this.clearAllRoutes();
-        if (this.nearbyMarkers) this.nearbyMarkers.forEach(marker => marker.remove())
-        if (this.RouteMarkers) this.RouteMarkers.forEach(marker => marker.remove())
-        if (this.routePolylines) this.routePolylines.forEach(marker => marker.remove())
-        if (this.hotelMarkers) this.hotelMarkers.forEach(marker => marker.remove());
-        if (this.activeMarker) {
-            this.activeMarker.remove();
-            this.activeMarker = null; // <-- Ensure it's cleared
+
+    // Navigation methods
+    async backToHotelButton() {
+        this.elements.aiRouteLoading.innerHTML = ""; // Clear any error message
+        this.elements.aiRouteLoading.style.display = 'none'; // Hide the loader
+        this.elements.publicTransportInfo.style.display = 'block';
+        this.markerManager.activeFeatureMarker = null;
+
+        this.elements.detailPopup.style.display = 'none';
+        this.markerManager.nearbyMarkers.forEach(marker => this.mapManager.map3D.append(marker));
+
+        if (this.markerManager.routeMarkers.length > 0) {
+            this.markerManager.routeMarkers.forEach(marker => marker.remove());
+            this.markerManager.routeMarkers = [];
         }
 
-        this.hotelMarkers = [];
-        this.RouteMarkers = [];
-        this.routePolylines = [];
-        this.nearbyMarkers = [];
-        //this.hotelMarkers.forEach(marker => this.map3D.removeChild(marker))
-        this.elements.routeContainer.style.display = "none";
-        //  this.hotelMarkers.forEach(marker => this.map3D.removeChild(marker));
-        this.elements.placeDetails.style.display = 'none';
-        this.elements.backToAllHotels.style.display = 'none';
-        this.elements.sponsoredContainer.innerHTML = '';
-        this.elements.sponsoredPopup.style.display = 'none';
-        this.elements.backToHotel.style.display = 'none';
-        this.elements.locationTitle.style.display = 'none';
-        this.elements.locationsubTitle.style.display = 'none';
-        this.elements.genRoute.style.display = 'none';
-        //this.clearAllRoutes();
-    }
-    backToHotel() {
-        this.elements.sponsoredPopup.style.display = 'none';
-
-        this.nearbyMarkers.forEach(marker => this.map3D.append(marker));
-        if (this.RouteMarkers) this.RouteMarkers.forEach(marker => marker.remove());
         this.elements.placeDetails.style.display = 'block';
-        if (this.routePolylines) this.routePolylines.forEach(polyline => polyline.remove());
-        this.elements.routeContainer.style.display = 'none';
-        this.elements.backToAllHotels.style.display = 'block';
-        this.elements.backToHotel.style.display = 'none';
-        this.elements.genRoute.style.display = 'block';
-    }
-    backToAllHotels() {
-        console.log(this.hotelMarkers)
-        console.log(this.nearbyMarkers)
-        if (this.activeMarker) {
-            this.activeMarker.remove();
-            this.activeMarker = null; // <-- Ensure it's cleared
+
+        if (this.markerManager.routePolylines.length > 0) {
+            this.markerManager.routePolylines.forEach(polyline => polyline.remove());
+            this.markerManager.routePolylines = [];
         }
-        if (this.nearbyMarkers) this.nearbyMarkers.forEach(marker => marker.remove());
+
+        this.elements.aiRouteContainer.style.display = 'none';
+        this.elements.backToAllHotelsButton.style.display = 'block';
+        this.elements.backToHotelButton.style.display = 'none';
+        this.elements.genRouteButton.style.display = 'block';
+        await this.mapManager.setCamera(
+            this.selectedPlace.location.lat,
+            this.selectedPlace.location.lng,
+            10, 45, CONFIG.CAMERA_RANGES.DETAIL, false
+        );
+    }
+
+    async backToAllHotelsButton() {
+        this.markerManager.activeFeatureMarker = null;
+
+        if (this.markerManager.activeMarker) {
+            this.markerManager.activeMarker.remove();
+            this.markerManager.activeMarker = null;
+        }
+        this.elements.publicTransportInfo.style.display = 'none';
+        this.elements.detailPopup.style.display = 'none';
+
+        this.markerManager.nearbyMarkers.forEach(marker => marker.remove());
         this.elements.placeDetails.style.display = 'none';
-        this.elements.routeContainer.style.display = "none";
-        this.elements.genRoute.style.display = 'none';
+        this.elements.aiRouteContainer.style.display = "none";
+        this.elements.genRouteButton.style.display = 'none';
         this.elements.placeList.style.display = 'block';
-        this.hotelMarkers.forEach(marker => this.map3D.append(marker));
-        this.elements.locationTitle.style.display = "block"
-        this.elements.locationsubTitle.style.display = "block"
-        this.clearAllRoutes();
-        this.showHotelList();
 
+        this.markerManager.hotelMarkers.forEach(marker => this.mapManager.map3D.append(marker));
+        this.elements.locationTitle.style.display = "block";
+        this.elements.locationSubtitle.style.display = "block";
 
+        this.markerManager.clearAllRoutes();
+        await this.showHotelList();
     }
+
+    async showHotelList() {
+        if (this.markerManager.activeMarker) {
+            this.markerManager.activeMarker.remove();
+            this.markerManager.activeMarker = null;
+        }
+
+        this.markerManager.nearbyMarkers.forEach(marker => marker.remove());
+        this.markerManager.nearbyMarkers = [];
+        this.elements.publicTransportInfo.style.display = 'none';
+
+        this.elements.placeDetails.style.display = 'none';
+        this.elements.placeList.style.display = 'block';
+        this.elements.backToAllHotelsButton.style.display = 'none';
+
+
+        this.addHotelMarkers();
+        await this.mapManager.setCamera(
+            this.selecteDestination.location.lat,
+            this.selecteDestination.location.lng,
+            10, 45, CONFIG.CAMERA_RANGES.OVERVIEW
+        );
+    }
+
     async resetCamera() {
-        this.elements.resetcamerabutton.style.display = 'none';
-
-        await this.setCamera(this.selectedPlace.location.lat, this.selectedPlace.location.lng, 10, 35, 5000, false);
-
+        this.elements.resetCameraButton.style.display = 'none';
+        await this.mapManager.setCamera(
+            this.selecteDestination.location.lat,
+            this.selecteDestination.location.lng,
+            10, 35, CONFIG.CAMERA_RANGES.OVERVIEW
+        );
     }
 
-    gotorandomplace() {
-        const randomIndex = Math.floor(Math.random() * this.randomdest.length);
-        this.gotopresetplace(this.randomdest[randomIndex].category1, this.randomdest[randomIndex].category2, this.randomdest[randomIndex].location);
+    // Preset destination methods
+    async gotoPresetPlace(cat1, cat2, location) {
+        try {
+            this.elements.map.style.display = 'block';
+            this.uiManager.animateHeader();
+
+            this.selectedCategories = {
+                category1: this.categoryMappings[cat1],
+                category2: this.categoryMappings[cat2]
+            };
+
+            const combinedTypes = [
+                ...(this.selectedCategories.category1?.types || []),
+                ...(this.selectedCategories.category2?.types || [])
+            ];
+
+            const labels = [
+                this.selectedCategories.category1?.short,
+                this.selectedCategories.category2?.short
+            ].filter(Boolean);
+
+            this.selecteDestination = location;
+            this.elements.detailPopup.style.display = 'none';
+            await this.getNearbyHotels(this.selecteDestination, labels, combinedTypes);
+        } catch (error) {
+            Logger.error("Error in preset place navigation", error);
+            this.uiManager.showErrorState("Failed to load preset destination");
+        }
+    }
+
+    gotoRandomPlace() {
+        const randomIndex = Math.floor(Math.random() * this.randomDestinations.length);
+        const destination = this.randomDestinations[randomIndex];
+        this.gotoPresetPlace(
+            destination.category1,
+            destination.category2,
+            destination.location
+        );
     }
 }
 
+// Initialize the application when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
-        const app = new HotelMapApp();
-        window.hotelMapApp = app; // expose the instance globally
+        try {
+            const app = new HotelMapApp();
+            window.hotelMapApp = app; // Expose globally for HTML onclick handlers
+            Logger.info("Application started successfully");
+        } catch (error) {
+            Logger.error("Failed to start application", error);
+        }
     }, 100);
 });
+
+// Remove transitions after page load
 window.addEventListener('load', () => {
-    document.getElementById('dropdown-container').classList.remove('no-transition');
+    const dropdownContainer = document.getElementById('dropdown-container');
+    if (dropdownContainer) {
+        dropdownContainer.classList.remove('no-transition');
+    }
 });
