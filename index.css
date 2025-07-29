@@ -534,6 +534,7 @@ gmp-place-autocomplete svg {
 }
 #dropdown-logo {
   display: none;
+  cursor: pointer;
   width: 4%;
   margin: 10px 10px 0 10px;
 }
