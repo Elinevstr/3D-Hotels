@@ -319,9 +319,7 @@ class ApiService {
                     "Content-Type": "application/json",
                     "X-Goog-Api-Key": this.apiKey
                 }
-            },
-                CONFIG.MAX_RETRIES,
-                false
+            }
             );
 
             const cleanedData = data.candidates[0].content.parts[0].text
@@ -1044,8 +1042,6 @@ class HotelMapApp {
             this.activeMarker.remove();
             this.activeMarker = null;
         }
-        this.elements.aiRouteLoading.innerHTML = "";
-        this.elements.aiRouteLoading.style.display = 'none';
         if (!this.selecteDestination) {
             this.uiManager.showUserError("Please select a destination first.");
             return;
@@ -1520,15 +1516,15 @@ class HotelMapApp {
 
 
 
-            this.elements.loadingStepsContainer.innerHTML = "";
             this.elements.aiRouteLoading.style.display = 'block';
+            this.uiManager.displayLoadingSteps();
             this.elements.aiRouteContainer.style.display = 'none';
             this.elements.placeList.style.display = 'none';
             this.elements.placeDetails.style.display = 'none';
             this.elements.backToAllHotelsButton.style.display = 'none';
             this.elements.detailPopup.style.display = 'none';
 
-            const finishLoadingStep = this.uiManager.displayLoadingSteps();
+
 
             const elementsToHide = [
                 'placeList', 'placeDetails', 'backToAllHotelsButton',
@@ -1692,7 +1688,6 @@ class HotelMapApp {
 
     async backToHotelButton() {
 
-        this.elements.aiRouteLoading.innerHTML = "";
         this.elements.aiRouteLoading.style.display = 'none';
         this.elements.publicTransportInfo.style.display = 'block';
         this.markerManager.activeFeatureMarker = null;
