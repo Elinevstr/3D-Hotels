@@ -29,7 +29,7 @@
   --shadow-color-hover: red(223, 41, 41, 0.15);
   --popup-bg: rgba(255, 255, 255, 0.95);
   --gmp-mat-color-on-surface: #2c2c5c;
-  --gmp-mat-color-surface: #fcf8e2;
+  --gmp-mat-color-surface: white;
   --gmp-mat-color-on-surface-variant: #59597a;
   --gmp-mat-color-primary: #5050e0;
   --gmp-mat-color-info: #7a7ac2;
