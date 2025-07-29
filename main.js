@@ -1,8 +1,6 @@
-// ===== CONFIG AND CONSTANTS =====
 const CONFIG = {
     SEARCH_RADIUS: 3000,
     PT_RADIUS: 200, //public transport 
-
     MAX_RESULTS: 20,
     ANIMATION_DURATION: 3000,
     CAMERA_RANGES: {
@@ -16,7 +14,6 @@ const CONFIG = {
     RETRY_DELAY: 1000
 };
 
-// ===== UTILITY FUNCTIONS =====
 class Utils {
     static debounce(func, wait) {
         let timeout;
@@ -54,7 +51,6 @@ class Utils {
     }
 }
 
-// ===== LOGGING SYSTEM =====
 class Logger {
     static debug(message, data = '') {
         console.log(`[DEBUG] ${message}`, data);
@@ -69,7 +65,6 @@ class Logger {
     }
 }
 
-// ===== API CACHE MANAGER =====
 class ApiCache {
     constructor() {
         this.cache = new Map();
@@ -110,7 +105,6 @@ class ApiCache {
     }
 }
 
-// ===== API SERVICE =====
 class ApiService {
     constructor(apiKey, elevationKey) {
         this.apiKey = apiKey;
@@ -329,7 +323,6 @@ class ApiService {
     }
 }
 
-// ===== DOM BATCH MANAGER =====
 class DomBatcher {
     constructor() {
         this.pendingUpdates = new Map();
@@ -385,7 +378,6 @@ class DomBatcher {
     }
 }
 
-// ===== UI MANAGER =====
 class UIManager {
     constructor(elements) {
         this.elements = elements;
@@ -402,15 +394,13 @@ class UIManager {
 
     showErrorState(message) {
         Logger.error("Error state:", message);
-        // Could show a toast or modal here
     }
 
     showUserError(message) {
-        alert(message); // Replace with better UI notification
+        alert(message);
     }
 
     animateHeader() {
-        // Batch initial style changes
         this.domBatcher.batchUpdate(this.elements.map, { 'style.display': 'block' });
         this.domBatcher.batchUpdate(this.elements.placeList, { 'style.display': 'block' });
 
@@ -422,7 +412,6 @@ class UIManager {
         dropdown.classList.add('slide-up');
 
         setTimeout(() => {
-            // Batch delayed style changes
             this.domBatcher.batchUpdate(document.getElementById('card-container'), { 'style.display': 'none' });
             this.domBatcher.batchUpdate(document.getElementById('logo'), { 'style.display': 'none' });
             this.domBatcher.batchUpdate(document.getElementById('dropdown-logo'), { 'style.display': 'block' });
@@ -482,7 +471,6 @@ class UIManager {
             return el;
         };
 
-        // Add first step immediately
         const firstStepEl = createStepElement(loadingSteps[0], true);
         container.appendChild(firstStepEl);
         stepEls.push(firstStepEl);
@@ -490,27 +478,23 @@ class UIManager {
         const interval = setInterval(() => {
             stepIndex++;
 
-            // Replace spinner in previous step
             const prev = stepEls[stepIndex - 1];
             if (prev) {
                 const step = loadingSteps[stepIndex - 1];
                 prev.innerHTML = `${step.emoji} ${step.text}`;
             }
 
-            // Add new step (with spinner) unless it's beyond the list
             if (stepIndex < loadingSteps.length) {
                 const newStepEl = createStepElement(loadingSteps[stepIndex], true);
                 container.appendChild(newStepEl);
                 stepEls.push(newStepEl);
             }
 
-            // Stop at the last step — spinner stays on
             if (stepIndex >= loadingSteps.length - 1) {
                 clearInterval(interval);
             }
         }, 4500);
 
-        // Expose a cleanup function for when the API is done
         return () => {
             const lastIndex = loadingSteps.length - 1;
             const lastEl = stepEls[lastIndex];
@@ -530,7 +514,6 @@ class UIManager {
     }
 }
 
-// ===== MAP MANAGER =====
 class MapManager {
     constructor(apiService, uiManager) {
         this.apiService = apiService;
@@ -618,7 +601,7 @@ class MapManager {
     }
 }
 
-// ===== MARKER POOL =====
+
 class MarkerPool {
     constructor(mapManager) {
         this.mapManager = mapManager;
@@ -716,7 +699,6 @@ class MarkerPool {
     resetMarker(marker) {
         marker.label = '';
         marker.originalLabel = '';
-        // Remove all event listeners by cloning the marker element
         const newMarker = marker.cloneNode(true);
         if (marker.parentNode) {
             marker.parentNode.replaceChild(newMarker, marker);
@@ -738,7 +720,7 @@ class MarkerPool {
     }
 }
 
-// ===== MARKER MANAGER =====
+
 class MarkerManager {
     constructor(mapManager, apiService) {
         this.mapManager = mapManager;
@@ -770,7 +752,6 @@ class MarkerManager {
     }
 
     clearAllMarkers() {
-        // Return markers to pool instead of destroying them
         this.nearbyMarkers.forEach(marker => {
             try {
                 this.mapManager.map3D.removeChild(marker);
@@ -833,23 +814,20 @@ class MarkerManager {
     }
 
     resetNearbyMarkerLabels() {
-        // Reset all nearby markers to their original labels (remove stars)
         this.nearbyMarkers.forEach(marker => {
             if (marker.originalLabel) {
                 marker.label = marker.originalLabel;
             }
         });
 
-        // Clear the active feature marker reference
         this.activeFeatureMarker = null;
     }
 }
 
-// ===== MAIN APPLICATION CLASS =====
+// main class
 class HotelMapApp {
     constructor() {
-        // SECURITY NOTE: In production, these should come from environment variables
-        // and API calls should be proxied through your backend
+
         this.apiKey = "AIzaSyCVNX6mCprAYiGp8RUaf9yc6H-00fLR1Ns";
         this.elevationKey = "AIzaSyCCThoiMgZnmvLy0Nc2AeITEkNjE6dSlps";
 
@@ -950,7 +928,6 @@ class HotelMapApp {
             elements[camelCase] = document.getElementById(id);
         });
         console.log(elements)
-        // Add querySelector elements
         elements.placeList = document.querySelector("gmp-place-search");
         elements.placeDetails = document.querySelector("gmp-place-details");
         elements.placeDetailsRequest = document.querySelector("gmp-place-details-place-request");
@@ -987,16 +964,13 @@ class HotelMapApp {
     }
 
     setupEventListeners() {
-        // Main search button
         this.elements.gobutton.addEventListener('click', () => this.handleGoButton());
 
-        // Navigation buttons
         this.elements.backToAllHotelsButton.addEventListener('click', () => this.backToAllHotelsButton());
         this.elements.backToHotelButton.addEventListener('click', () => this.backToHotelButton());
         this.elements.genRouteButton.addEventListener('click', () => this.generateAIWalkingRoute());
         this.elements.resetCameraButton.addEventListener('click', () => this.resetCamera());
 
-        // Destination cards from HTML
         document.addEventListener('click', (event) => {
             if (event.target.closest('.destination-card')) {
                 const card = event.target.closest('.destination-card');
@@ -1005,7 +979,6 @@ class HotelMapApp {
             }
         });
 
-        // Close popup
         const closeBtn = document.querySelector('#detail-popup .close-btn');
         if (closeBtn) {
             closeBtn.addEventListener('click', () => {
@@ -1013,7 +986,6 @@ class HotelMapApp {
             });
         }
 
-        // Debounced search for better performance
         this.debouncedSearch = Utils.debounce(
             this.searchNearbyFeatures.bind(this),
             CONFIG.DEBOUNCE_DELAY
@@ -1056,10 +1028,10 @@ class HotelMapApp {
     async handleGoButton() {
         if (this.activeMarker) {
             this.activeMarker.remove();
-            this.activeMarker = null; // <-- Ensure it's cleared
+            this.activeMarker = null;
         }
-        this.elements.aiRouteLoading.innerHTML = ""; // Clear any error message
-        this.elements.aiRouteLoading.style.display = 'none'; // Hide the loader
+        this.elements.aiRouteLoading.innerHTML = "";
+        this.elements.aiRouteLoading.style.display = 'none';
         if (!this.selecteDestination) {
             this.uiManager.showUserError("Please select a destination first.");
             return;
@@ -1076,7 +1048,7 @@ class HotelMapApp {
     async gotoPlace() {
         if (this.activeMarker) {
             this.activeMarker.remove();
-            this.activeMarker = null; // <-- Ensure it's cleared
+            this.activeMarker = null;
         }
         this.uiManager.showLoadingState("Processing your request...");
 
@@ -1129,7 +1101,6 @@ class HotelMapApp {
         this.markerManager.clearAllRoutes();
         this.markerManager.clearAllMarkers();
 
-        // Batch all UI element hiding operations
         const elementsToHide = [
             'detailPopup', 'aiRouteContainer', 'airouteContainer', 'placeDetails',
             'backToAllHotelsButton', 'backToHotelButton', 'genRouteButton'
@@ -1206,7 +1177,6 @@ class HotelMapApp {
 
     async getNearbyHotels(location, labels, types) {
         try {
-            // Use immediate updates to ensure these show after batched hide operations
             this.uiManager.domBatcher.immediateUpdate(this.elements.locationTitle, {
                 'style.display': 'block',
                 innerHTML: `Hotels in ${location.formattedAddress}`
@@ -1252,7 +1222,7 @@ class HotelMapApp {
         const { Marker3DInteractiveElement, PinElement } = this.mapManager.library;
         if (this.activeMarker) {
             this.activeMarker.remove();
-            this.activeMarker = null; // <-- Ensure it's cleared
+            this.activeMarker = null;
         }
         if (this.elements.placeList.places?.length > 0) {
             this.elements.placeList.places.forEach(async (feature) => {
@@ -1315,7 +1285,6 @@ class HotelMapApp {
             );
             this.elements.resetCameraButton.style.display = 'block';
 
-            // Parallelize API calls for better performance
             const [marker, elevation, transportData] = await Promise.all([
                 this.markerManager.createHotelMarker(hotel),
                 this.apiService.getElevation(hotel.location.lat, hotel.location.lng),
@@ -1422,14 +1391,12 @@ class HotelMapApp {
     }
 
     async handleFeatureMarkerClick(marker, feature, location) {
-        // Deselect previously active marker
         if (this.markerManager.activeFeatureMarker && this.markerManager.activeFeatureMarker !== marker) {
             this.markerManager.activeFeatureMarker.label = this.markerManager.activeFeatureMarker.originalLabel;
         }
 
         const isSameMarker = this.markerManager.activeFeatureMarker === marker;
         if (isSameMarker) {
-            // Deselect current marker
             marker.label = marker.originalLabel;
             this.markerManager.removeSpecificRoute(marker.id);
             this.elements.resetCameraButton.style.display = 'block';
@@ -1443,7 +1410,6 @@ class HotelMapApp {
                 true
             );
         } else {
-            // Set this marker as active
             marker.label = `⭐${feature.displayName.text}`;
             this.elements.detailPopupContainer.innerHTML = "";
             this.markerManager.clearAllRoutes();
@@ -1540,7 +1506,6 @@ class HotelMapApp {
 
 
 
-            // Show loading UI
             this.elements.loadingStepsContainer.innerHTML = "";
             this.elements.aiRouteLoading.style.display = 'block';
             this.elements.aiRouteContainer.style.display = 'none';
@@ -1551,7 +1516,6 @@ class HotelMapApp {
 
             const finishLoadingStep = this.uiManager.displayLoadingSteps();
 
-            // Hide hotel UI elements
             const elementsToHide = [
                 'placeList', 'placeDetails', 'backToAllHotelsButton',
                 'airouteContainer', 'aiRouteLoading', 'genRouteButton'
@@ -1602,7 +1566,6 @@ class HotelMapApp {
 
                 // Set camera view
                 if (route.routes[0].viewport) {
-                    // Reset any starred labels from nearby markers before generating AI route
                     this.markerManager.resetNearbyMarkerLabels();
                     this.markerManager.clearAllRoutes();
                     this.elements.resetCameraButton.style.display = 'none';
@@ -1618,17 +1581,13 @@ class HotelMapApp {
                     );
                 }
 
-                // Create and display route polyline
                 const polyline = this.createRoutePolyline();
-                polyline.strokeColor = "#f7e76fff";
-                polyline.altitudeMode = "RELATIVE_TO_GROUND";
 
                 const path = google.maps.geometry.encoding.decodePath(route.routes[0].polyline.encodedPolyline);
                 polyline.coordinates = path;
                 this.mapManager.map3D.append(polyline);
                 this.markerManager.routePolylines.push(polyline);
 
-                // Update UI
                 this.elements.aiRouteLoading.style.display = 'none';
                 this.elements.aiRouteContainer.style.display = 'block';
 
@@ -1687,7 +1646,6 @@ class HotelMapApp {
                 this.filldetailPopupContainer(stop.placeId, null);
             });
 
-            // Setup card click handler
             setTimeout(() => {
                 const card = document.getElementById(`ai-stop-card-${i}`);
                 if (card) {
@@ -1701,17 +1659,14 @@ class HotelMapApp {
     }
 
     highlightStop(index, stop) {
-        // Reset all card backgrounds
         document.querySelectorAll(".ai-stop-card").forEach(cardEl => {
             cardEl.style.background = "transparent";
         });
 
-        // Reset all marker labels
         this.markerManager.routeMarkers.forEach((marker, i) => {
             marker.label = `${i + 1}. ${this.routeStops[i].name}`;
         });
 
-        // Highlight selected elements
         const card = document.getElementById(`ai-stop-card-${index}`);
         if (card) {
             card.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1722,11 +1677,10 @@ class HotelMapApp {
         this.markerManager.routeMarkers[index].label = `⭐ ${index + 1}. ${stop.name}`;
     }
 
-    // Navigation methods
     async backToHotelButton() {
 
-        this.elements.aiRouteLoading.innerHTML = ""; // Clear any error message
-        this.elements.aiRouteLoading.style.display = 'none'; // Hide the loader
+        this.elements.aiRouteLoading.innerHTML = "";
+        this.elements.aiRouteLoading.style.display = 'none';
         this.elements.publicTransportInfo.style.display = 'block';
         this.markerManager.activeFeatureMarker = null;
 
@@ -1812,7 +1766,6 @@ class HotelMapApp {
         );
     }
 
-    // Preset destination methods
     async gotoPresetPlace(cat1, cat2, location) {
         try {
             this.elements.map.style.display = 'block';
@@ -1853,7 +1806,6 @@ class HotelMapApp {
     }
 }
 
-// Initialize the application when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         try {
@@ -1866,7 +1818,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 100);
 });
 
-// Remove transitions after page load
 window.addEventListener('load', () => {
     const dropdownContainer = document.getElementById('dropdown-container');
     if (dropdownContainer) {

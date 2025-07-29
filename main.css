@@ -1,22 +1,16 @@
-/* ==========================================================================
-   1. Variables & Global Styles
-   ========================================================================== */
 @import url("https://fonts.googleapis.com/css2?family=Averia+Sans+Libre:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&family=Fredoka:wght@300..700&family=Intel+One+Mono:ital,wght@0,300..700;1,300..700&family=Inter+Tight:ital,wght@0,100..900;1,100..900&family=Noto+Sans+SC:wght@100..900&family=Special+Gothic+Expanded+One&display=swap");
 :root {
-  /* Brand Colors */
-  --brand-primary: #4343d0; /* Main brand blue */
-  --brand-secondary: #071f97; /* Dark brand blue */
-  --brand-tertiary: #06176d; /* Darker brand blue */
-  --brand-accent: #081f97; /* Accent blue */
+  --brand-primary: #4343d0;
+  --brand-secondary: #071f97;
+  --brand-tertiary: #06176d;
+  --brand-accent: #081f97;
 
-  /* Background Colors */
-  --bg-primary: #faf3cd; /* Main cream background */
-  --bg-secondary: #fcf8e2; /* Light cream background */
-  --bg-tertiary: #f9f5da; /* Input/form background */
-  --bg-card: #fdfdfd; /* Card background */
-  --bg-highlight: #fcf2f2ff; /* Hover/selection background */
+  --bg-primary: #faf3cd;
+  --bg-secondary: #fcf8e2;
+  --bg-tertiary: #f9f5da;
+  --bg-card: #fdfdfd;
+  --bg-highlight: #fcf2f2ff;
 
-  /* Legacy colors (keeping for compatibility) */
   --primary-color: var(--brand-primary);
   --secondary-color: var(--bg-secondary);
   --heading-color: var(--brand-secondary);
@@ -50,13 +44,9 @@
   --main-font: "Inter Tight", sans-serif;
   --header-height: 60px;
 
-  /* Layout */
-
-  /* Typography */
   --font-family-primary: "Poppins", Arial, sans-serif;
   --base-font-size: 15px;
 
-  /* Borders & Shadows */
   --border-radius-small: 4px;
   --border-radius-medium: 6px;
   --border-radius-large: 8px;
@@ -64,16 +54,10 @@
   --box-shadow-medium: 0 3px 6px var(--shadow-color);
   --box-shadow-hover: 0 6px 12px var(--shadow-color-hover);
 
-  /* Transitions */
   --transition-speed: 2s;
   --transition-timing: ease-in-out;
 }
 
-/* ==========================================================================
-   Utility Classes
-   ========================================================================== */
-
-/* Display utilities */
 .flex {
   display: flex;
 }
@@ -87,7 +71,6 @@
   display: none !important;
 }
 
-/* Text alignment */
 .text-center {
   text-align: center;
 }
@@ -98,7 +81,6 @@
   text-align: right;
 }
 
-/* Flexbox utilities */
 .flex-col {
   flex-direction: column;
 }
@@ -118,7 +100,6 @@
   justify-content: space-around;
 }
 
-/* Border radius utilities */
 .rounded-sm {
   border-radius: var(--border-radius-small);
 }
@@ -135,7 +116,6 @@
   border-radius: 25px;
 }
 
-/* Info box component - shared styles for weather, transport, etc */
 .info-box {
   border-radius: 25px;
   padding: 6px 10px;
@@ -168,16 +148,14 @@
 footer p {
   font-size: 8px;
   padding: 0 0 0 10px;
-  position: absolute;
   bottom: 0;
-  height: 3vh;
+
   color: #29314a;
 }
 footer a {
   color: #f3474f;
 }
 
-/* General Styles */
 html,
 body {
   color: var(--brand-secondary);
@@ -189,13 +167,9 @@ body {
   scrollbar-width: thin;
 }
 
-/* ==========================================================================
-   2. Layout: Header, Sidebar, Content Area
-   ========================================================================== */
-
 #dropdown-container {
   position: absolute;
-  top: 45%; /* Start at 50% of header height */
+  top: 45%;
   left: 0;
   height: 60px;
   width: 100%;
@@ -207,23 +181,18 @@ body {
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  /* Smooth transition - match header timing exactly */
   transition: top var(--transition-speed) var(--transition-timing);
 
-  /* Center vertically in the header */
   transform: translateY(-50%);
 
-  /* Add will-change for better performance during animation */
   will-change: top;
 }
 
-/* Active state - moves to header position */
 #dropdown-container.active {
-  top: 0; /* Move to top of header */
-  transform: translateY(0); /* Reset transform */
+  top: 0;
+  transform: translateY(0);
 }
 
-/* Ensure the fullscreen content is hidden when transitioning */
 .fullscreen-inner {
   height: 100%;
   width: 100%;
@@ -231,47 +200,39 @@ body {
   transition: opacity 0.3s ease;
 }
 
-/* Hide fullscreen content when header is not expanded */
 #main-header:not(.expanded) .fullscreen-inner {
   opacity: 0;
   pointer-events: none;
 }
 
-/* Header states and transitions */
 #main-header {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   z-index: 1000;
-  /* Set a default header height */
-  height: var(--header-height); /* 60px */
+  height: var(--header-height);
   background-color: var(--bg-primary);
-  /* Use the same transition timing as dropdown */
   transition: height var(--transition-speed) var(--transition-timing),
     transform var(--transition-speed) var(--transition-timing);
-  overflow: visible; /* Allow dropdown to be visible during animation */
+  overflow: visible;
 }
 
-/* Expanded state - fullscreen */
 #main-header.expanded {
   height: 100vh;
   background-color: var(--bg-primary);
-  transform: translateY(0); /* Normal position when expanded */
+  transform: translateY(0);
 }
 
-/* When transitioning to header mode, slide everything up */
 #main-header:not(.expanded) {
-  height: var(--header-height); /* Ensure header has height when not expanded */
-  transform: translateY(-100vh); /* Slide entire header up off-screen */
+  height: var(--header-height);
+  transform: translateY(-100vh);
 }
 
-/* When header is in slide-back mode, return to normal position */
 #main-header.slide-back {
-  transform: translateY(0) !important; /* Override the slide-up */
+  transform: translateY(0) !important;
 }
 
-/* Remove transition override when needed */
 #dropdown-container.no-transition {
   transition: none !important;
   will-change: auto;
@@ -301,7 +262,6 @@ gmp-place-autocomplete svg {
   font-size: 15px;
 }
 
-/* Base button component */
 .btn,
 #gobutton,
 .sidebar-button {
@@ -326,28 +286,27 @@ gmp-place-autocomplete svg {
   background-color: var(--bg-tertiary);
   color: var(--brand-primary);
 }
-/* === NEW: Styles for Header Title Container === */
 .header-title {
-  display: flex; /* Align icon and text */
+  display: flex;
   align-items: center;
-  font-size: 22px; /* Moved from .header */
-  font-weight: 600; /* Moved from .header */
-  color: var(--heading-color); /* Moved from .header */
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--heading-color);
 }
 
 .header-icon {
   margin-right: 10px;
   font-size: 26px;
-  line-height: 1; /* Adjust vertical alignment if needed */
+  line-height: 1;
 }
 
 .sidebar {
   flex-basis: 30%;
   border-radius: 12px;
   align-items: center;
-  top: var(--header-height); /* Position below header */
+  top: var(--header-height);
   background: var(--bg-secondary);
-  color: var(--heading-color); /* Use variable */
+  color: var(--heading-color);
   overflow-y: auto;
   height: 100%;
   font-family: var(--main-font);
@@ -359,15 +318,10 @@ gmp-place-autocomplete svg {
 
 .content {
   flex-basis: 70%;
-  position: relative; /* Needed for absolute positioning of children */
-  display: flex; /* Needed to make map child fill the area */
+  position: relative;
+  display: flex;
 }
 
-/* ==========================================================================
-   3. Components: Map, Hotel List, Popups, Loaders
-   ========================================================================== */
-
-/* --- Map --- */
 #map {
   height: 100%;
   width: 100%;
@@ -377,10 +331,9 @@ gmp-place-autocomplete svg {
   border-left: 1px solid var(--border-color);
 }
 
-/* Optional - Activity Marker Style */
 .activity {
   background-color: var(--primary-color);
-  border-radius: 12px; /* Pill shape */
+  border-radius: 12px;
   color: var(--white);
   font-size: var(--base-font-size);
   font-weight: 500;
@@ -394,10 +347,9 @@ gmp-place-autocomplete svg {
 #weather-info {
   background-color: var(--brand-primary);
   color: var(--bg-secondary);
-  display: none; /* Override default info-box display */
+  display: none;
 }
 #reset-camera-button {
-  /* Inherit base button styles */
   border-radius: 30px;
   min-width: 100px;
   height: 40px;
@@ -411,7 +363,6 @@ gmp-place-autocomplete svg {
   color: var(--bg-tertiary);
   transition: background-color 0.3s ease, color 0.3s ease;
 
-  /* Specific positioning */
   position: absolute;
   bottom: -20px;
   left: 45%;
@@ -424,64 +375,53 @@ gmp-place-autocomplete svg {
   color: var(--brand-primary);
 }
 
-/* Weather box images handled by .info-box img */
-
 .nearby-places-info {
-  margin-top: 12px; /* Space above this section */
-  padding: 10px; /* Inner padding */
-  background-color: var(--bg-card); /* Very subtle background difference */
-  border: 1px solid var(--border-color); /* Optional border */
-  border-radius: var(--border-radius-medium); /* Consistent rounding */
+  margin-top: 12px;
+  padding: 10px;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-medium);
   text-align: center;
 }
 
 .nearby-places-info h4 {
-  margin: 0 0 6px 0; /* Space below heading */
-  font-size: var(--base-font-size); /* Slightly smaller heading */
+  margin: 0 0 6px 0;
+  font-size: var(--base-font-size);
   font-weight: 600;
   color: var(--text-color);
   line-height: 1.4;
 }
 
-/* Optional: Style star icon within heading if needed */
 .nearby-places-info h4 .star-icon {
-  font-size: 1.5em; /* Make star slightly smaller than text */
-  vertical-align: baseline; /* Adjust alignment if needed */
+  font-size: 1.5em;
+  vertical-align: baseline;
 }
 
 .nearby-places-info p {
   font-size: var(--base-font-size);
   color: var(--text-light);
-  display: flex; /* Use flexbox for spacing the place types */
-  gap: 50px; /* Space between "🍴 48", "🛍️ 84", etc. */
+  display: flex;
+  gap: 50px;
 }
 
-/* Style individual place type groups (icon + number) */
 .nearby-places-info .place-type {
-  display: inline-flex; /* Align icon and number */
+  display: inline-flex;
   align-items: center;
-  margin-right: 15px; /* Space between icon and number */
+  margin-right: 15px;
   white-space: nowrap;
 }
 
-/* Style the icon within the place type span */
 .nearby-places-info .icon {
-  font-size: 1.55em; /* Make icon slightly larger */
-  line-height: 1; /* Adjust if vertical alignment needed */
+  font-size: 1.55em;
+  line-height: 1;
 }
 
-/* ==========================================================================
-   4. Utilities
-   ========================================================================== */
-
 .error-message {
-  color: var(--danger-color); /* Use variable */
+  color: var(--danger-color);
   font-weight: 500;
   font-size: 13px;
   margin-top: 5px;
 }
-
-/* Moved to utility classes section above */
 
 .detail-popup {
   position: absolute;
@@ -515,7 +455,7 @@ gmp-place-autocomplete svg {
   color-scheme: light;
 }
 .fullscreen-inner {
-  height: 100%; /* match header.expanded */
+  height: 100%;
   width: 100%;
   position: relative;
 }
@@ -597,7 +537,6 @@ gmp-place-autocomplete svg {
   width: 4%;
   margin: 10px 10px 0 10px;
 }
-/* Link Wrapper for Card */
 #card-container button {
   background-color: transparent;
   padding: 10px;
@@ -645,7 +584,6 @@ gmp-place-autocomplete svg {
   bottom: -40px;
 }
 
-/* Removed unused vertical-shaking animation */
 #ai-route-loading {
   text-align: center;
   font-weight: 500;
@@ -765,14 +703,13 @@ gmp-place-details-compact {
   background-color: var(--bg-primary);
   color: var(--brand-primary);
 }
-/* Public transport info p handled by .info-box p */
 #overlay-container {
   position: absolute;
   width: fit-content;
   top: 5px;
   left: 10px;
   display: flex;
-  flex-direction: column; /* stacks vertically */
+  flex-direction: column;
   gap: 10px;
   z-index: 998;
 }
