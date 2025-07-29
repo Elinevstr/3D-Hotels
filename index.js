@@ -1504,6 +1504,8 @@ class HotelMapApp {
     }
 
     async generateAIWalkingRoute() {
+
+        this.apiService.cache.clear();
         try {
             this.elements.backToHotelButton.style.display = 'none';
             this.elements.locationTitle.style.display = 'none';
